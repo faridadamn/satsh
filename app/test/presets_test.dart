@@ -44,7 +44,7 @@ void main() {
 
   test('auto-installed once; deleting it sticks', () async {
     final b = await fresh();
-    expect(await b.autoInstallPresets(Presets.all()), ['web-designer']);
+    expect(await b.autoInstallPresets(Presets.all()), ['web-designer', 'cybersecurity', 'devops', 'code-reviewer']);
     final v = await b.view('web-designer');
     expect(b.profile('web-designer')!.emoji, '🎨');
     expect(b.profile('web-designer')!.toolsOff, containsAll(['control', 'supabase']));

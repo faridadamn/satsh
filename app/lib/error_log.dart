@@ -5,8 +5,9 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'redact.dart';
 
-const appVersion = '2.3.0 (19)';
+const appVersion = '2.4.0 (20)';
 
 /// One captured error with enough context to find the bug.
 class ErrorEntry {
@@ -37,7 +38,7 @@ class ErrorEntry {
       b.writeln('  ${e.key}: ${e.value}');
     }
     if (stack.trim().isNotEmpty) b.writeln(stack.trim());
-    return b.toString();
+    return Redact.text(b.toString()); // reports get shared — never leak keys/passwords
   }
 }
 

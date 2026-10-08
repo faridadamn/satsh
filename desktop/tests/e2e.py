@@ -136,7 +136,7 @@ def main(keep=False):
         # host + trust flow
         h = call("/api/host", {"host": {"label": "local", "host": "127.0.0.1", "port": 2222, "username": "tester", "auth": "password"}, "password": "rahasia123"})["host"]
         r = call("/api/host/connect", {"id": h["id"]})
-        ok(r["_status"] == 409 and r["needTrust"], "unknown host key → 409 needTrust (%s)" % r.get("fp"))
+        ok(r["_status"] == 409 and r["needTrust"], "unknown host key → 409 needTrust (%s)" % (r.get("fp") or r))
         call("/api/host/trust", {"id": h["id"], "keytype": r["keytype"], "fp": r["fp"]})
         ok(call("/api/host/connect", {"id": h["id"]}) == {"ok": True}, "connect after trust")
         # terminal

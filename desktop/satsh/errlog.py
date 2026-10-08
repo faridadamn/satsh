@@ -81,4 +81,6 @@ def report(last=MAX):
         if e.get("stack"):
             out.append(e["stack"])
         out.append("---")
-    return "\n".join(out) + "\n"
+    from . import redact  # reports get shared — never leak keys/passwords
+
+    return redact.text("\n".join(out) + "\n")

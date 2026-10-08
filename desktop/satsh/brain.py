@@ -29,6 +29,22 @@ Kamu **satsh agent**: partner ngoprek yang hidup di laptop Windows user. Kamu bi
 - Ingat hal penting tentang user & lingkungannya pakai memori, dan simpan cara kerja yang kepake berulang jadi skill.
 """
 
+# Working rules every newly summoned agent gets (light adoption of the "7 bagian CLAUDE.md" checklist).
+WORK_PRINCIPLES = """## Cara kerja (berlaku buat semua tugas)
+- **Sederhana dulu, tapi tuntas.** Ukurannya: bakal di-approve senior engineer ga? Kalau rumit, sederhanain. Kalau setengah jadi, belum selesai.
+- **Rencana dulu** buat tugas 3+ langkah: tulis pakai todo_write, update statusnya sambil jalan. Rencana yang NGUBAH sistem (hapus, deploy, ubah config, restart) → tunjukin dulu & tunggu "oke" user.
+- **Bukti, bukan klaim.** Jangan bilang "beres" sebelum ada bukti: output perintah, log, hasil tes, atau diff. Taruh buktinya (singkat) di laporan.
+- **Bug/error: telusuri sendiri dulu.** Baca log, cari akar masalah, coba perbaiki. Nanya user cuma kalau bener-bener buntu atau butuh keputusan.
+- **Belajar dari koreksi.** Tiap dikoreksi user, catat pelajarannya ke memori (target=memory, awali "Pelajaran:") biar ga ngulang.
+- **Konteks tetap bersih.** Riset/eksplorasi panjang yang bisa dipisah → delegate_task."""
+
+
+def new_agent_soul(name, desc="", body=""):
+    b = (body or "").strip() or "# SOUL — %s\n\n%s\n" % (name, (desc or "").strip() or "Kamu agent %s." % name)
+    b = b.strip()
+    return b + "\n" if "## Cara kerja" in b else b + "\n\n" + WORK_PRINCIPLES + "\n"
+
+
 DEFAULT_SKILLS = {
     "cek-server": """---
 name: cek-server
@@ -279,7 +295,45 @@ class ProfileBrain:
         name = (name or "").strip().lower()
         return next((s for s in self.skills if s["name"] == name), None)
 
-    def save_skill(self, raw, expect=None):
+    # ------------------------------------------------- built-in skills
+    @property
+    def builtins(self):
+        """Skills that ship with satsh for this profile (name -> SKILL.md). Read-only for the agent."""
+        return self.brain.builtin_skills.get(self.id, {})
+
+    def is_builtin(self, name):
+        return (name or "").strip().lower() in self.builtins
+
+    def is_modified(self, s):
+        return self.is_builtin(s["name"]) and s["raw"].strip() != self.builtins[s["name"]].strip()
+
+    def missing_builtins(self):
+        return [n for n in self.builtins if not self.skill(n)]
+
+    @staticmethod
+    def locked_msg(name):
+        return ('Skill "%s" itu skill BAWAAN — cuma user yang boleh ubah/hapus (Otak → Skill). '
+                'Kalau butuh versi lain, bikin skill baru dengan nama beda (mis. "%s-custom").' % (name, name))
+
+    def reset_skill(self, name):
+        raw = self.builtins.get(name)
+        if raw is None:
+            raise ValueError('Skill "%s" bukan skill bawaan' % name)
+        _rw(self._p("skills", name, "SKILL.md"), raw.strip())
+        self._load_skills()
+        self.brain.changed("skills")
+
+    def reset_all_builtins(self):
+        n = 0
+        for name in self.builtins:
+            s = self.skill(name)
+            if s and not self.is_modified(s):
+                continue
+            self.reset_skill(name)
+            n += 1
+        return n
+
+    def save_skill(self, raw, expect=None, by_agent=False):
         s = parse_skill(raw)
         if not s:
             raise ValueError("SKILL.md wajib punya frontmatter:\n---\nname: nama-skill\ndescription: kapan dipakai\n---")
@@ -289,12 +343,16 @@ class ProfileBrain:
             raise ValueError("description wajib diisi")
         if expect and expect != s["name"]:
             raise ValueError('name di frontmatter ("%s") beda sama "%s"' % (s["name"], expect))
+        if by_agent and self.is_builtin(s["name"]):
+            raise ValueError(self.locked_msg(s["name"]))
         _rw(self._p("skills", s["name"], "SKILL.md"), raw.strip())
         self._load_skills()
         self.brain.changed("skills")
         return s["name"]
 
-    def delete_skill(self, name):
+    def delete_skill(self, name, by_agent=False):
+        if by_agent and self.is_builtin(name):
+            raise ValueError(self.locked_msg(name))
         p = self._p("skills", name)
         if SKILL_NAME_RE.match(name or "") and os.path.isdir(p):
             shutil.rmtree(p)
@@ -304,7 +362,7 @@ class ProfileBrain:
     def skills_index(self):
         if not self.skills:
             return "(belum ada skill)"
-        return "\n".join("- %s: %s" % (s["name"], s["description"]) for s in self.skills)
+        return "\n".join("- %s%s: %s" % (s["name"], " [bawaan, read-only]" if self.is_builtin(s["name"]) else "", s["description"]) for s in self.skills)
 
 
 class Brain:
@@ -318,6 +376,7 @@ class Brain:
         self.profiles = []
         self.active_id = "default"
         self.presets_seen = []  # built-in presets already offered once (deleted ones stay deleted)
+        self.builtin_skills = {"default": dict(DEFAULT_SKILLS)}  # profile id -> {skill name: SKILL.md}
         self._views = {}
         self.active = None
         self.sessions = []  # list of meta dicts
@@ -490,6 +549,7 @@ class Brain:
         pid = meta.get("id", "")
         if not PROFILE_ID_RE.match(pid) or pid == "default":
             raise ValueError("id preset ga valid")
+        self.register_preset_skills(pid, files)
         d = self.dir_of(pid)
         os.makedirs(os.path.join(d, "skills"), exist_ok=True)
         for rel, text in files.items():
@@ -510,15 +570,26 @@ class Brain:
         """presets: {id: loader()}. Installs presets never offered before."""
         added = []
         for pid, load in presets.items():
-            if pid in self.presets_seen:
-                continue
             try:
-                self.install_preset(load())
+                files = load()
+                self.register_preset_skills(pid, files)  # installed earlier too: its skills stay read-only for the agent
+                if pid in self.presets_seen:
+                    continue
+                self.install_preset(files)
                 added.append(pid)
             except Exception:
-                self.presets_seen.append(pid)
+                if pid not in self.presets_seen:
+                    self.presets_seen.append(pid)
                 self.save_profiles()
         return added
+
+    def register_preset_skills(self, pid, files):
+        out = {}
+        for rel, text in files.items():
+            m = re.match(r"^skills/([a-z0-9][a-z0-9-]{1,48})/SKILL\.md$", rel)
+            if m:
+                out[m.group(1)] = text
+        self.builtin_skills[pid] = out
 
     def reload_profile(self, pid):
         self._views.pop(pid, None)

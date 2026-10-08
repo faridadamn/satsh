@@ -2,7 +2,7 @@
 
 SSH client Android yang "gw banget": terminal, SFTP, tunnel, agent AI di dalam aplikasi, Mode Server (HP lain bisa SSH ke HP ini), plus versi desktop buat Windows 7 / 10 / 11.
 
-Versi app: **2.3.0** · desktop **2.3.0**
+Versi app: **2.4.0** · desktop **2.4.0**
 
 ## Isi repo
 
@@ -25,6 +25,11 @@ Versi app: **2.3.0** · desktop **2.3.0**
   - Provider berurutan + fallback: OpenAI-compatible, Gemini (API key), ChatGPT (login Codex)
   - **Agent eksternal**: ngobrol sama `agy` (Antigravity CLI) di Termux/proot lewat SSH; soul-nya tetap di sana
 - **Profil agent**: beberapa persona, masing-masing soul/memori/skill/model/tools sendiri; profil user dipakai bareng
+- **Agent preset bawaan**: 🎨 Web Designer, 🛡️ Cyber Security (audit & hardening server, secret bocor, keamanan web, triase insiden), 🚀 DevOps (rilis aman + rollback, backup & restore, Docker, Nginx + SSL), 🔍 Code Reviewer (review diff dengan bukti, tes, audit dependency)
+- **Cara kerja agent baru**: tiap agent yang di-summon dapet blok "Cara kerja" — rencana dulu (todo), bukti sebelum bilang beres, telusuri bug sendiri, catat pelajaran tiap dikoreksi
+- **Skill bawaan dikunci**: skill default & skill preset cuma bisa diubah user (agent read-only); tombol "Kembaliin default" per skill / semua
+- **Push skill ke Hermes**: kirim skill lewat SSH ke `~/.hermes/skills/satsh/<nama>/` (status sinkron/beda/belum ada, tarik balik skill buatan Hermes); tool agent `skill_push`
+- **Sensor data sensitif**: API key, password, token, private key & IP disamarin di langkah tool, status, dialog izin, dan laporan error (bisa dimatiin di Pengaturan)
 - **Zip otak agent** (`satsh-agent.json` + `profiles/<id>/…`): format sama di HP & desktop, bisa pindah bolak-balik
 - **Preset 🎨 Web Designer**: agent kedua buat bikin UI web pakai [antislop](https://github.com/miqdadbadjuber/anti-slop) (MIT, © Miqdad Badjuber) + AGENTS.md + DESIGN.md + gambar referensi; preview & screenshot hasilnya sendiri (`web_preview`)
 - **Bikin agent dari gambar**: kirim screenshot thread/postingan/repo → agent nyusun profil baru (tool `agent_profile`)

@@ -256,6 +256,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                   value: s.get<bool>('autoApprove', false),
                   onChanged: (v) => s.set('autoApprove', v),
                 ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Sensor data sensitif di proses agent'),
+                  subtitle: Text('API key, password, token, private key & IP disamarin (••••) di langkah tool, status, dan dialog izin.',
+                      style: TextStyle(color: C.muted, fontSize: 12)),
+                  value: s.get<bool>('redact', true),
+                  onChanged: (v) => s.set('redact', v),
+                ),
                 const Divider(),
                 for (final g in [
                   ('phone', 'File HP', Icons.phone_android_rounded),

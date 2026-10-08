@@ -11,6 +11,7 @@ import 'external.dart';
 import 'llm.dart';
 import 'presets.dart';
 import 'providers.dart';
+import 'skill_push.dart';
 import 'tools.dart';
 import '../vision.dart';
 import '../native.dart';
@@ -680,12 +681,13 @@ ${pb.skillsIndex()}''',
           switch (a['action']) {
             case 'create':
               if (pb.skill(name) != null) throw 'Skill "$name" udah ada — pakai edit/patch';
-              final n = await pb.saveSkill(a['content'] ?? '', expectName: name);
+              if (pb.isBuiltin(name)) throw ProfileBrain.lockedMsg(name);
+              final n = await pb.saveSkill(a['content'] ?? '', expectName: name, byAgent: true);
               note('skill "$n" dibikin');
               return 'Skill "$n" kesimpen.';
             case 'edit':
               if (pb.skill(name) == null) throw 'Skill "$name" ga ada';
-              await pb.saveSkill(a['content'] ?? '', expectName: name);
+              await pb.saveSkill(a['content'] ?? '', expectName: name, byAgent: true);
               note('skill "$name" diupdate');
               return 'Skill "$name" diupdate.';
             case 'patch':
@@ -693,16 +695,64 @@ ${pb.skillsIndex()}''',
               if (s == null) throw 'Skill "$name" ga ada';
               final old = a['old_text'] as String? ?? '';
               if (old.isEmpty || !s.raw.contains(old)) throw 'old_text ga ketemu di skill';
-              await pb.saveSkill(s.raw.replaceFirst(old, a['new_text'] ?? ''), expectName: name);
+              await pb.saveSkill(s.raw.replaceFirst(old, a['new_text'] ?? ''), expectName: name, byAgent: true);
               note('skill "$name" diperbaiki');
               return 'Skill "$name" di-patch.';
             case 'delete':
               if (pb.skill(name) == null) throw 'Skill "$name" ga ada';
-              await pb.deleteSkill(name);
+              await pb.deleteSkill(name, byAgent: true);
               note('skill "$name" dihapus');
               return 'Skill "$name" dihapus.';
           }
           throw 'action ga dikenal';
+        },
+      ),
+      AgentTool(
+        const ToolSpec(
+          name: 'skill_push',
+          description: 'Kirim (push) skill satsh ke agent lain di server lewat SSH — sekarang: Hermes (~/.hermes/skills/satsh/<nama>/SKILL.md, '
+              'kepakai di sesi Hermes berikutnya). action: status (bandingin skill di sini vs di server) | push (names: daftar nama skill; '
+              '"markas" = skill Markas bawaan buat Hermes). host: nama server (default: server Markas).',
+          params: {
+            'action': {'type': 'string', 'enum': ['status', 'push']},
+            'names': {'type': 'array', 'items': {'type': 'string'}},
+            'host': {'type': 'string'},
+          },
+          required: ['action'],
+        ),
+        group: 'ssh',
+        risky: true,
+        (a) async {
+          final hostName = '${a['host'] ?? ''}'.trim();
+          final h = hostName.isNotEmpty ? findHost(hostName) : (Markas.i.host ?? (throw 'Sebutin host-nya (server tempat Hermes jalan).'));
+          final st = await SkillPush.status(h);
+          if (!st.hasAgent) throw 'Hermes ga ketemu di ${h.label} (~/.hermes ga ada).';
+          final mk = await SkillPush.markasSkill();
+          final all = [...pb.skills, if (mk != null && pb.skill('markas') == null) mk];
+          if (a['action'] == 'status') {
+            String label(PushState s) => switch (s) { PushState.same => 'sama', PushState.differs => 'BEDA', PushState.missing => 'belum ada' };
+            final only = st.onlyRemote(all.map((e) => e.name));
+            return '${h.label} · Hermes\n${all.map((s) => '- ${s.name}: ${label(st.of(s))}').join('\n')}'
+                '${only.isEmpty ? '' : '\nCuma ada di Hermes: ${only.map((r) => r.name).join(', ')}'}';
+          }
+          final names = (a['names'] as List? ?? []).map((e) => '$e'.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+          if (names.isEmpty) throw 'names wajib (daftar skill yang mau di-push)';
+          final done = <String>[], errs = <String>[];
+          for (final n in names) {
+            final sk = all.where((s) => s.name == n).firstOrNull;
+            if (sk == null) {
+              errs.add('$n: ga ada di skill profil ini');
+              continue;
+            }
+            try {
+              done.add('$n → ${await SkillPush.push(h, sk)}');
+            } catch (e) {
+              errs.add('$e');
+            }
+          }
+          if (done.isNotEmpty) note('${done.length} skill di-push ke Hermes');
+          return '${done.isEmpty ? 'Ga ada yang ke-push.' : 'Ke-push:\n${done.join('\n')}\nHermes bakal pakai di sesi berikutnya.'}'
+              '${errs.isEmpty ? '' : '\nGagal: ${errs.join(' | ')}'}';
         },
       ),
       AgentTool(
@@ -765,10 +815,10 @@ ${pb.skillsIndex()}''',
           final done = <String>[];
           final soul = '${a['soul'] ?? ''}'.trim();
           if (soul.isNotEmpty) {
-            await v.saveSoul(soul);
+            await v.saveSoul(act == 'create' ? newAgentSoul(p.name, p.desc, soul) : soul);
             done.add('soul');
           } else if (act == 'create') {
-            await v.saveSoul('# SOUL — ${p.name}\n\n${p.desc.isEmpty ? 'Kamu agent ${p.name}.' : p.desc}\n');
+            await v.saveSoul(newAgentSoul(p.name, p.desc));
           }
           // copy skills from another profile or a built-in preset
           final from = '${a['copy_skills_from'] ?? ''}'.trim();
@@ -776,6 +826,8 @@ ${pb.skillsIndex()}''',
           if (from.startsWith('preset:')) {
             final files = await Presets.load(from.substring(7));
             for (final e in files.entries.where((e) => e.key.startsWith('skills/'))) {
+              final n = e.key.split('/')[1];
+              if (v.isBuiltin(n) && v.skill(n) != null) continue; // never overwrite a built-in skill of the target
               final f = File('${v.dir.path}/${e.key}');
               await f.parent.create(recursive: true);
               await f.writeAsString(e.value);
@@ -785,8 +837,10 @@ ${pb.skillsIndex()}''',
           } else if (from.isNotEmpty) {
             final src = await brain.view(from);
             for (final sk in src.skills) {
-              await (await brain.view(p.id)).saveSkill(sk.raw.isEmpty ? sk.body : sk.raw);
-              copied++;
+              try {
+                await (await brain.view(p.id)).saveSkill(sk.raw.isEmpty ? sk.body : sk.raw, byAgent: true);
+                copied++;
+              } catch (_) {} // built-in skill of the target: left as is
             }
           }
           if (copied > 0) done.add('$copied skill disalin');
@@ -796,7 +850,7 @@ ${pb.skillsIndex()}''',
             final n = '${raw['name'] ?? ''}'.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9-]+'), '-');
             final d = '${raw['description'] ?? ''}'.replaceAll('\n', ' ').trim();
             try {
-              await pv.saveSkill('---\nname: $n\ndescription: ${jsonEncode(d)}\n---\n${raw['content'] ?? ''}');
+              await pv.saveSkill('---\nname: $n\ndescription: ${jsonEncode(d)}\n---\n${raw['content'] ?? ''}', byAgent: true);
               done.add('skill $n');
             } catch (e) {
               errs.add('$n: $e');

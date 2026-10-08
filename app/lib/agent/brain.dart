@@ -226,6 +226,22 @@ Kamu **satsh agent**: partner ngoprek yang hidup di HP Android user. Kamu bisa m
 - Ingat hal penting tentang user & lingkungannya pakai memori, dan simpan cara kerja yang kepake berulang jadi skill.
 ''';
 
+/// Working rules every newly summoned agent gets (adapted, lightly, from the
+/// "7 bagian CLAUDE.md" checklist: plan → verify → learn).
+const workPrinciples = r'''## Cara kerja (berlaku buat semua tugas)
+- **Sederhana dulu, tapi tuntas.** Ukurannya: bakal di-approve senior engineer ga? Kalau rumit, sederhanain. Kalau setengah jadi, belum selesai.
+- **Rencana dulu** buat tugas 3+ langkah: tulis pakai todo_write, update statusnya sambil jalan. Rencana yang NGUBAH sistem (hapus, deploy, ubah config, restart) → tunjukin dulu & tunggu "oke" user.
+- **Bukti, bukan klaim.** Jangan bilang "beres" sebelum ada bukti: output perintah, log, hasil tes, atau diff. Taruh buktinya (singkat) di laporan.
+- **Bug/error: telusuri sendiri dulu.** Baca log, cari akar masalah, coba perbaiki. Nanya user cuma kalau bener-bener buntu atau butuh keputusan.
+- **Belajar dari koreksi.** Tiap dikoreksi user, catat pelajarannya ke memori (target=memory, awali "Pelajaran:") biar ga ngulang.
+- **Konteks tetap bersih.** Riset/eksplorasi panjang yang bisa dipisah → delegate_task.''';
+
+/// Soul for a brand-new agent profile: who it is + [workPrinciples].
+String newAgentSoul(String name, String desc, [String body = '']) {
+  final b = body.trim().isEmpty ? '# SOUL — $name\n\n${desc.trim().isEmpty ? 'Kamu agent $name.' : desc.trim()}\n' : body.trim();
+  return b.contains('## Cara kerja') ? '$b\n' : '$b\n\n$workPrinciples\n';
+}
+
 const _defaultSkills = {
   'cek-server': '''---
 name: cek-server
@@ -383,12 +399,53 @@ class ProfileBrain {
 
   Skill? skill(String name) => skills.where((s) => s.name == name.trim().toLowerCase()).firstOrNull;
 
-  Future<String> saveSkill(String raw, {String? expectName}) async {
+  // ------------------------------------------------------- built-in skills
+  /// Skills that ship with the app for this profile (name → SKILL.md).
+  /// Only the USER may change them; the agent gets read-only access.
+  Map<String, String> get builtins => brain.builtinSkills[id] ?? const {};
+  bool isBuiltin(String name) => builtins.containsKey(name.trim().toLowerCase());
+
+  /// Built-in skill whose file no longer matches what ships with the app.
+  bool isModified(Skill s) => isBuiltin(s.name) && s.raw.trim() != builtins[s.name]!.trim();
+
+  /// Built-in skills the user deleted.
+  List<String> get missingBuiltins => [for (final n in builtins.keys) if (skill(n) == null) n];
+
+  static String lockedMsg(String name) =>
+      'Skill "$name" itu skill BAWAAN — cuma user yang boleh ubah/hapus (Otak → Skill). '
+      'Kalau butuh versi lain, bikin skill baru dengan nama beda (mis. "$name-custom").';
+
+  /// Puts built-in skill [name] back to how it ships (user action).
+  Future<void> resetSkill(String name) async {
+    final raw = builtins[name];
+    if (raw == null) throw 'Skill "$name" bukan skill bawaan';
+    await Directory('${dir.path}/skills/$name').create(recursive: true);
+    await File('${dir.path}/skills/$name/SKILL.md').writeAsString(raw.trim());
+    await _loadSkills();
+    brain._changed();
+  }
+
+  /// Restores every built-in skill (edited or deleted). Returns how many changed.
+  Future<int> resetAllBuiltins() async {
+    var n = 0;
+    for (final name in builtins.keys) {
+      final s = skill(name);
+      if (s != null && !isModified(s)) continue;
+      await resetSkill(name);
+      n++;
+    }
+    return n;
+  }
+
+  /// [byAgent]: the call comes from the agent (tools / background review) —
+  /// built-in skills are refused.
+  Future<String> saveSkill(String raw, {String? expectName, bool byAgent = false}) async {
     final s = Brain.parseSkill(raw);
     if (s == null) throw 'SKILL.md wajib punya frontmatter:\n---\nname: nama-skill\ndescription: kapan dipakai\n---';
     if (!Brain._nameRe.hasMatch(s.name)) throw 'Nama skill harus huruf kecil/angka/strip, mis. "cek-server"';
     if (s.description.isEmpty) throw 'description wajib diisi (dipakai buat nentuin kapan skill relevan)';
     if (expectName != null && expectName != s.name) throw 'name di frontmatter ("${s.name}") beda sama "$expectName"';
+    if (byAgent && isBuiltin(s.name)) throw lockedMsg(s.name);
     await Directory('${dir.path}/skills/${s.name}').create(recursive: true);
     await File('${dir.path}/skills/${s.name}/SKILL.md').writeAsString(raw.trim());
     await _loadSkills();
@@ -396,7 +453,8 @@ class ProfileBrain {
     return s.name;
   }
 
-  Future<void> deleteSkill(String name) async {
+  Future<void> deleteSkill(String name, {bool byAgent = false}) async {
+    if (byAgent && isBuiltin(name)) throw lockedMsg(name);
     final d = Directory('${dir.path}/skills/$name');
     if (await d.exists()) await d.delete(recursive: true);
     await _loadSkills();
@@ -414,7 +472,9 @@ ${m.isEmpty ? '(kosong)' : m}
 ${u.isEmpty ? '(kosong)' : u}""";
   }
 
-  String skillsIndex() => skills.isEmpty ? '(belum ada skill)' : skills.map((s) => '- ${s.name}: ${s.description}').join('\n');
+  String skillsIndex() => skills.isEmpty
+      ? '(belum ada skill)'
+      : skills.map((s) => '- ${s.name}${isBuiltin(s.name) ? ' [bawaan, read-only]' : ''}: ${s.description}').join('\n');
 }
 
 /// File-backed "brain": profiles (SOUL.md, MEMORY.md, skills/), shared USER.md,
@@ -432,6 +492,18 @@ class Brain extends ChangeNotifier {
 
   /// Built-in presets already offered once (so a deleted preset stays deleted).
   List<String> presetsSeen = [];
+
+  /// Built-in skills per profile id (default profile + each shipped preset).
+  final Map<String, Map<String, String>> builtinSkills = {'default': Map.of(_defaultSkills)};
+
+  /// Remembers which skills of preset [profileId] are built-in (from its files).
+  void registerPresetSkills(String profileId, Map<String, String> files) {
+    final re = RegExp(r'^skills/([a-z0-9][a-z0-9-]{1,48})/SKILL\.md$');
+    builtinSkills[profileId] = {
+      for (final e in files.entries)
+        if (re.firstMatch(e.key) case final m?) m.group(1)!: e.value,
+    };
+  }
   final Map<String, ProfileBrain> _views = {};
   late ProfileBrain active;
 
@@ -571,6 +643,7 @@ class Brain extends ChangeNotifier {
   Future<AgentProfile> installPreset(Map<String, String> files) async {
     final meta = AgentProfile.fromJson(jsonDecode(files['profile.json']!) as Map<String, dynamic>);
     if (!AgentProfile.idRe.hasMatch(meta.id) || meta.id == 'default') throw 'id preset ga valid';
+    registerPresetSkills(meta.id, files);
     final d = dirOf(meta.id);
     await Directory('${d.path}/skills').create(recursive: true);
     for (final e in files.entries) {
@@ -602,12 +675,14 @@ class Brain extends ChangeNotifier {
   Future<List<String>> autoInstallPresets(Map<String, Future<Map<String, String>> Function()> presets) async {
     final added = <String>[];
     for (final e in presets.entries) {
-      if (presetsSeen.contains(e.key)) continue;
       try {
-        await installPreset(await e.value());
+        final files = await e.value();
+        registerPresetSkills(e.key, files); // even if installed earlier: its skills stay read-only for the agent
+        if (presetsSeen.contains(e.key)) continue;
+        await installPreset(files);
         added.add(e.key);
       } catch (_) {
-        presetsSeen.add(e.key); // broken preset: don't retry every start
+        if (!presetsSeen.contains(e.key)) presetsSeen.add(e.key); // broken preset: don't retry every start
         await saveProfiles();
       }
     }

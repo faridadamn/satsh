@@ -145,7 +145,7 @@ def presets_test():
                        "skills": [{"name": "Caption IG", "description": "bikin caption", "content": "1. hook"}],
                        "memory": ["ref: github.com/miqdadbadjuber/anti-slop"], "tools_off": ["ssh"], "copy_skills_from": "preset:web-designer"})
     v = b.view("copywriter")
-    ok("id=copywriter" in out and v.soul == "# Kamu copywriter" and v.skill("caption-ig") and v.skill("antislop-copywriting"), "agent_profile create")
+    ok("id=copywriter" in out and v.soul.startswith("# Kamu copywriter") and "## Cara kerja" in v.soul and v.skill("caption-ig") and v.skill("antislop-copywriting"), "agent_profile create")
     ok("anti-slop" in v.memory and b.profile("copywriter")["toolsOff"] == ["ssh"], "agent_profile memory + tools")
 
 

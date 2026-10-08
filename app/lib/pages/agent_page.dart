@@ -17,6 +17,7 @@ import '../theme.dart';
 import '../md_blocks.dart';
 import '../vision.dart';
 import '../native.dart';
+import '../redact.dart';
 import 'browser_panel.dart';
 import '../widgets.dart';
 import 'file_viewer_page.dart';
@@ -27,7 +28,7 @@ import 'settings_page.dart';
 
 Future<String> askApproval(BuildContext context, AgentTool tool, Map<String, dynamic> args) async {
   HapticFeedback.heavyImpact();
-  final pretty = const JsonEncoder.withIndent('  ').convert(args);
+  final pretty = const JsonEncoder.withIndent('  ').convert(Redact.args(args));
   final r = await showSheet<String>(
       useSafeArea: true,
     context: context,
@@ -324,7 +325,7 @@ class _AgentPageState extends State<AgentPage> {
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
                       itemCount: visible.length + (a.busy ? 1 : 0),
                       itemBuilder: (_, i) {
-                        if (i == visible.length) return _Thinking(status: a.status, onStop: a.stop);
+                        if (i == visible.length) return _Thinking(status: Redact.text(a.status), onStop: a.stop);
                         final m = visible[i];
                         if (m.role == 'event') return _EventPill(m.text);
                         return m.role == 'user' ? _UserBubble(m.text, images: m.images) : _AssistantBlock(m: m, results: results);
@@ -737,7 +738,7 @@ class _AssistantBlock extends StatelessWidget {
               ),
               border: Border.all(color: C.stroke),
             ),
-            child: MessageBody(m.text),
+            child: MessageBody(m.calls.isEmpty ? m.text : Redact.text(m.text)),
           ),
         if (m.isError)
           TextButton.icon(
@@ -765,7 +766,7 @@ class _ToolChipState extends State<_ToolChip> {
   bool _open = false;
 
   String get _summary {
-    final a = widget.call.args;
+    final a = Redact.args(widget.call.args);
     final v = a['command'] ?? a['path'] ?? a['query'] ?? a['table'] ?? a['url'] ?? a['phone_path'] ?? a['text'] ?? a['name'] ?? a['key'] ??
         a['direction'] ?? (a['n'] != null ? '[${a['n']}]' : (a['x'] != null ? '(${a['x']}, ${a['y']})' : ''));
     final host = a['host'] != null ? '${a['host']} · ' : '';
@@ -808,7 +809,7 @@ class _ToolChipState extends State<_ToolChip> {
                 ? Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: SelectableText(
-                      '${const JsonEncoder.withIndent('  ').convert(widget.call.args)}\n\n→ ${r?.text ?? '…'}',
+                      '${const JsonEncoder.withIndent('  ').convert(Redact.args(widget.call.args))}\n\n→ ${r == null ? '…' : Redact.text(r.text)}',
                       style: TextStyle(fontFamily: monoFont, fontSize: 11.5, color: C.text, height: 1.45),
                     ),
                   )

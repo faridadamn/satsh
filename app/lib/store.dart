@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'models.dart';
+import 'redact.dart';
 
 const _uuid = Uuid();
 String newId() => _uuid.v4();
@@ -37,8 +38,12 @@ class Store extends ChangeNotifier {
       cfg[k] = v;
     }
     _p.setString('cfg', jsonEncode(cfg));
+    if (k == 'redact') Redact.enabled = v != false;
     notifyListeners();
   }
+
+  /// Every stored secret value (passwords, keys, tokens) — for [Redact.learn].
+  Future<List<String>> secretValues() async => (await _secure.readAll()).values.toList();
 
   Future<String?> secret(String k) => _secure.read(key: 'sec_$k');
   Future<void> setSecret(String k, String? v) async {
@@ -46,6 +51,7 @@ class Store extends ChangeNotifier {
       await _secure.delete(key: 'sec_$k');
     } else {
       await _secure.write(key: 'sec_$k', value: v);
+      Redact.learn([v]);
     }
     notifyListeners();
   }
@@ -106,6 +112,10 @@ class Store extends ChangeNotifier {
     forwards = _list('forwards').map(Forward.fromJson).toList();
     knownHosts = Map<String, String>.from(jsonDecode(_p.getString('known') ?? '{}'));
     fontSize = _p.getDouble('fontSize') ?? 13;
+    Redact.enabled = get<bool>('redact', true);
+    try {
+      Redact.learn(await secretValues());
+    } catch (_) {}
     if (!(_p.getBool('seeded') ?? false)) {
       snippets = [
         Snippet(id: newId(), name: 'htop', command: 'htop'),
@@ -143,6 +153,7 @@ class Store extends ChangeNotifier {
     } else {
       hosts.add(h);
     }
+    Redact.learn([password, passphrase]);
     if (password != null) await _secure.write(key: 'pw_${h.id}', value: password);
     if (key != null) await _secure.write(key: 'key_${h.id}', value: key);
     if (passphrase != null) await _secure.write(key: 'pp_${h.id}', value: passphrase);

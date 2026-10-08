@@ -571,21 +571,68 @@ function brainMemory(el) {
     h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Refleksi otomatis"), h("div", { class: "muted small" }, "Tiap N pesan, agent review obrolan di background & nyimpen memori/skill yang berguna."),
       seg([[0, "Mati"], [4, "tiap 4"], [6, "tiap 6"], [10, "tiap 10"]], every, (v) => tryDo(() => api("/api/settings", { reviewEvery: v })).then(refresh).then(render))));
 }
+function skillTag(s) {
+  if (!s.builtin) return null;
+  return h("span", { class: "chip-tag" + (s.modified ? " warn" : "") }, s.modified ? "bawaan · diubah" : "bawaan");
+}
 function brainSkills(el) {
   const fileIn = h("input", { type: "file", accept: ".md,text/markdown,text/plain", class: "hidden", onchange: async () => { const raw = await fileIn.files[0].text(); await tryDo(() => api("/api/skill", { raw }), "Skill masuk"); await refresh(); render(); } });
-  el.append(h("div", { class: "row" }, h("div", { class: "muted", style: { flex: 1 } }, "Prosedur yang bisa dipanggil agent (atau lu lewat /nama-skill di chat). Agent juga bisa bikin & benerin skill sendiri."),
+  const changed = S.st.skills.filter((s) => s.modified).length, gone = (S.st.missingBuiltins || []).length;
+  el.append(h("div", { class: "row" }, h("div", { class: "muted", style: { flex: 1 } }, "Prosedur yang bisa dipanggil agent (atau lu lewat /nama-skill di chat). Agent bisa bikin & benerin skill sendiri — kecuali skill BAWAAN: itu cuma lu yang bisa ubah."),
+    h("button", { class: "btn", onclick: () => pushSkills() }, icon("up"), "Push ke Hermes"),
     h("button", { class: "btn", onclick: () => fileIn.click() }, icon("upload"), "Import"), fileIn, h("button", { class: "btn primary", onclick: () => editSkill() }, icon("plus"), "Skill baru")),
+    changed + gone ? h("div", { class: "card row", style: { borderColor: "var(--amber)" } }, icon("refresh"),
+      h("div", { style: { flex: 1 } }, "Skill bawaan: " + [changed ? changed + " diubah" : "", gone ? gone + " kehapus" : ""].filter(Boolean).join(", ")),
+      h("button", { class: "btn", onclick: async () => { if (!(await confirmBox("Kembaliin skill bawaan?", "Semua skill bawaan balik ke versi asli dari app. Skill buatan lu/agent ga kesentuh."))) return;
+        const r = await tryDo(() => api("/api/skill/reset", { all: true })); if (r) toast(r.count + " skill bawaan dikembaliin"); await refresh(); render(); } }, "Kembaliin default")) : null,
     ...S.st.skills.map((s, i) => h("div", { class: "card row press", onclick: () => editSkill(s) }, h("div", { class: "avatar", style: { background: grad(i) } }, icon("book")),
-      h("div", { style: { minWidth: 0, flex: 1 } }, h("b", { class: "mono" }, "/" + s.name), h("div", { class: "muted small" }, s.description)))));
+      h("div", { style: { minWidth: 0, flex: 1 } }, h("div", { class: "row", style: { gap: "8px" } }, h("b", { class: "mono" }, "/" + s.name), skillTag(s)), h("div", { class: "muted small" }, s.description)))));
+}
+async function pushSkills(only) {
+  const hosts = S.st.hosts;
+  if (!hosts.length) return toast("Tambahin dulu server tempat Hermes jalan (menu Host)", true);
+  const LAB = { same: ["sinkron", "var(--green)"], differs: ["beda", "var(--amber)"], missing: ["belum ada", "var(--muted)"] };
+  await modal((close) => {
+    const pick = h("select", { class: "field" }, hosts.map((x) => h("option", { value: x.id }, x.label + " · " + x.host)));
+    pick.value = (S.st.settings.skillPushHost && hosts.some((x) => x.id === S.st.settings.skillPushHost)) ? S.st.settings.skillPushHost : (S.st.settings.markasHost || hosts[0].id);
+    const body = h("div", { class: "col" }), chosen = new Set(only ? [only] : []);
+    const load = async () => {
+      body.replaceChildren(h("div", { class: "muted" }, "Ngecek skill di server…"));
+      const r = await tryDo(() => api("/api/skillpush/status", { hostId: pick.value }));
+      if (!r) return body.replaceChildren(h("div", { style: { color: "var(--red)" } }, "Gagal nyambung."));
+      if (!r.hasAgent) return body.replaceChildren(h("div", { style: { color: "var(--amber)" } }, "Hermes ga ketemu di server ini (~/.hermes ga ada)."));
+      if (!only && !chosen.size) r.skills.filter((x) => x.state !== "same").forEach((x) => chosen.add(x.name));
+      const btn = h("button", { class: "btn primary" }, icon("up"), "Push");
+      const upd = () => { btn.lastChild.textContent = "Push " + chosen.size + " skill"; btn.disabled = !chosen.size; };
+      btn.onclick = async () => { btn.disabled = true; const x = await tryDo(() => api("/api/skillpush/push", { hostId: pick.value, names: [...chosen] }));
+        if (x) toast(x.errors.length ? x.errors.join("\n") : x.pushed.length + " skill ke-push · kepakai di sesi Hermes berikutnya", !!x.errors.length); chosen.clear(); load(); };
+      body.replaceChildren(...r.skills.map((x) => { const cb = h("input", { type: "checkbox" }); cb.checked = chosen.has(x.name); cb.onchange = () => { cb.checked ? chosen.add(x.name) : chosen.delete(x.name); upd(); };
+        return h("label", { class: "row", style: { gap: "10px", cursor: "pointer" } }, cb, h("b", { class: "mono" }, "/" + x.name), h("span", { class: "small", style: { color: LAB[x.state][1], fontWeight: 700 } }, LAB[x.state][0]), h("span", { class: "muted small", style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.description)); }),
+        h("div", { class: "row" }, h("div", { class: "spacer" }), btn),
+        r.onlyRemote.length ? h("b", { style: { marginTop: "10px" } }, "Cuma ada di Hermes") : null,
+        ...r.onlyRemote.map((x) => h("div", { class: "row" }, h("span", { class: "mono", style: { flex: 1 } }, x.name + "  "), h("span", { class: "muted small" }, x.path),
+          h("button", { class: "btn", onclick: async () => { const y = await tryDo(() => api("/api/skillpush/pull", { hostId: pick.value, path: x.path })); if (y) { toast('Skill "' + y.name + '" ditarik'); await refresh(); load(); } } }, icon("download"), "Tarik"))));
+      upd();
+    };
+    pick.onchange = () => { chosen.clear(); load(); };
+    load();
+    return [h("h2", {}, "Push skill ke Hermes"), h("div", { class: "muted small" }, "Skill profil aktif dikirim lewat SSH ke ~/.hermes/skills/satsh/<nama>/. Hermes pakai mulai sesi berikutnya. Tool khusus satsh ga ada di Hermes — skill berisi prosedur shell/CLI paling cocok."),
+      pick, body, h("div", { class: "row", style: { marginTop: "12px" } }, h("div", { class: "spacer" }), h("button", { class: "btn ghost", onclick: () => close(null) }, "Tutup"))];
+  });
+  await refresh(); render();
 }
 async function editSkill(s) {
   const tpl = "---\nname: nama-skill\ndescription: Kapan skill ini dipakai (agent baca ini buat mutusin)\n---\n# Judul\n\n1. Langkah pertama\n2. Langkah kedua\n";
   const r = await modal((close) => { const ta = h("textarea", { class: "field mono", style: { minHeight: "55vh", fontSize: "12.5px" } }); ta.value = s ? s.raw : tpl;
-    return [h("h2", {}, s ? "/" + s.name : "Skill baru"), ta, h("div", { class: "row", style: { marginTop: "12px" } },
-      s ? h("button", { class: "btn danger", onclick: () => close({ del: true }) }, icon("trash"), "Hapus") : null, h("div", { class: "spacer" }),
+    return [h("h2", {}, s ? "/" + s.name : "Skill baru", s ? skillTag(s) : null), s && s.builtin ? h("div", { class: "muted small" }, "Skill bawaan — agent cuma bisa baca. Lu bebas edit; \"Kembaliin default\" buat balik ke versi asli.") : null, ta, h("div", { class: "row", style: { marginTop: "12px" } },
+      s ? h("button", { class: "btn danger", onclick: () => close({ del: true }) }, icon("trash"), "Hapus") : null,
+      s && s.modified ? h("button", { class: "btn", onclick: () => close({ reset: true }) }, icon("refresh"), "Kembaliin default") : null,
+      s ? h("button", { class: "btn", onclick: () => close({ push: true }) }, icon("up"), "Push ke Hermes") : null, h("div", { class: "spacer" }),
       h("button", { class: "btn ghost", onclick: () => close(null) }, "Batal"), h("button", { class: "btn primary", onclick: () => close({ raw: ta.value }) }, "Simpan"))]; });
   if (!r) return;
-  if (r.del) { if (await confirmBox("Hapus skill?", "/" + s.name)) await tryDo(() => api("/api/skill/delete", { name: s.name })); }
+  if (r.push) return pushSkills(s.name);
+  if (r.reset) { if (await confirmBox("Kembaliin ke bawaan?", "Perubahan lu di /" + s.name + " bakal ilang.")) await tryDo(() => api("/api/skill/reset", { name: s.name }), "/" + s.name + " balik ke versi bawaan"); }
+  else if (r.del) { if (await confirmBox("Hapus skill?", "/" + s.name)) await tryDo(() => api("/api/skill/delete", { name: s.name })); }
   else await tryDo(() => api("/api/skill", { raw: r.raw, old: s && s.name }), "Skill kesimpen");
   await refresh(); render();
 }
@@ -658,6 +705,7 @@ function setAgent(el) {
   const GL = { laptop: "File laptop", shell: "Shell & proses", device: "Clipboard, screenshot, info", ssh: "Server SSH", supabase: "Supabase", web: "HTTP GET" };
   el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Provider LLM (fallback berurutan)"), h("div", { class: "muted small" }, "Kalau provider #1 error/limit, otomatis pindah ke berikutnya."), box),
     h("div", { class: "card col" }, h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Auto-izinin semua aksi"), h("div", { class: "muted small" }, "Agent ga nanya dulu sebelum hapus file / jalanin perintah. Hati-hati.")), sw(st.autoApprove, (v) => saveSettings({ autoApprove: v }))),
+    h("div", { class: "card col" }, h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Sensor data sensitif di proses agent"), h("div", { class: "muted small" }, "API key, password, token, private key & IP disamarin (••••) di langkah tool, status, dan dialog izin.")), sw(st.redact !== false, (v) => saveSettings({ redact: v })))),
       ...S.st.toolGroups.filter((g) => g !== "misc").map((g) => h("div", { class: "row" }, h("div", { style: { flex: 1 } }, GL[g] || g, h("span", { class: "muted small" }, "  " + (S.st.toolCount[g] || 0) + " tools")), sw(!off.includes(g), (v) => saveSettings({ toolGroupsOff: v ? off.filter((x) => x !== g) : off.concat([g]) })))),
       h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Shell default"), seg([["cmd", "cmd"], ["powershell", "PowerShell"]], st.shell, (v) => saveSettings({ shell: v }).then(render)))),
     h("div", { class: "card col" }, h("b", {}, "Instruksi tambahan"), prompt, h("button", { class: "btn primary", onclick: () => saveSettings({ agentPrompt: prompt.value }).then(() => toast("Kesimpen")) }, "Simpan")));

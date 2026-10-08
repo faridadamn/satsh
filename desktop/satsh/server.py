@@ -14,7 +14,7 @@ import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import agentzip, errlog, presets
+from . import agentzip, errlog, presets, redact, skill_push
 from . import markas_client as markas
 from . import llm as llm_mod
 from .agent import agent, bus, cron
@@ -60,8 +60,10 @@ def state():
         "hosts": [dict(h, connected=ssh.connected(h["id"])) for h in sorted(ssh.hosts, key=lambda h: -(h.get("lastUsed") or 0))],
         "terms": [{"id": t.id, "hostId": t.host["id"], "label": t.host["label"], "alive": t.alive} for t in ssh.terms.values()],
         "sessions": b.sessions,
-        "runs": {sid: {"status": r["status"]} for sid, r in agent.runs.items()},
-        "skills": [{"name": s["name"], "description": s["description"], "raw": s["raw"]} for s in b.skills],
+        "runs": {sid: {"status": redact.text(r["status"])} for sid, r in agent.runs.items()},
+        "skills": [{"name": s["name"], "description": s["description"], "raw": s["raw"], "builtin": b.active.is_builtin(s["name"]),
+                    "modified": b.active.is_modified(s)} for s in b.skills],
+        "missingBuiltins": b.active.missing_builtins(),
         "jobs": [dict(j, next=j.next_run().strftime("%Y-%m-%d %H:%M"), label=j.schedule_label()) for j in b.jobs],
         "memory": {"memory": b.entries("memory"), "user": b.entries("user"), "limits": {"memory": b.limit("memory"), "user": b.limit("user")}},
         "soul": b.soul,
@@ -258,7 +260,7 @@ class Handler(BaseHTTPRequestHandler):
                 agent.brain.mark_read(s["id"])
                 if s["id"] not in agent.runs:
                     agent.brain.save_session(s)
-            return self.send_json(dict(s, **agent.state(s["id"])))
+            return self.send_json(redact.session_view(dict(s, **agent.state(s["id"]))))
         if path == "/api/search":
             return self.send_json(agent.brain.search_sessions(q.get("q", ""), limit=20))
         if path == "/api/term/read":
@@ -491,6 +493,39 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/skill/delete":
             b.delete_skill(d["name"])
             return self.send_json(ok)
+        if path == "/api/skill/reset":
+            if d.get("all"):
+                return self.send_json({"count": b.active.reset_all_builtins()})
+            b.active.reset_skill(d["name"])
+            return self.send_json(ok)
+        if path == "/api/skillpush/status":
+            h = _host(d["hostId"])
+            st = skill_push.status(h)
+            mk = skill_push.markas_skill()
+            alls = list(b.skills) + ([mk] if mk and not b.skill("markas") else [])
+            names = {s["name"] for s in alls}
+            cfg.set("skillPushHost", h["id"])
+            return self.send_json({"hasAgent": st["hasAgent"],
+                                   "skills": [{"name": s["name"], "description": s["description"], "state": skill_push.state_of(st, s)} for s in alls] if st["hasAgent"] else [],
+                                   "onlyRemote": [r for r in st["remote"] if r["name"] not in names]})
+        if path == "/api/skillpush/push":
+            h = _host(d["hostId"])
+            mk = skill_push.markas_skill()
+            done, errs = [], []
+            for n in d.get("names") or []:
+                sk = b.skill(n) or (mk if n == "markas" else None)
+                if not sk:
+                    errs.append("%s: ga ada" % n)
+                    continue
+                try:
+                    skill_push.push(h, sk)
+                    done.append(n)
+                except Exception as e:  # noqa
+                    errs.append(str(e))
+            return self.send_json({"pushed": done, "errors": errs})
+        if path == "/api/skillpush/pull":
+            raw = skill_push.pull(_host(d["hostId"]), d["path"])
+            return self.send_json({"name": b.save_skill(raw)})
         if path == "/api/job":
             j = b.job(d.get("id")) if d.get("id") else None
             if j is None:
@@ -514,6 +549,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/settings":
             vals = {k: v for k, v in d.items() if k in cfg.data and k != "providers"}
             cfg.update(vals)
+            redact.enabled = cfg.get("redact", True) is not False
             bus.emit("settings", {})
             return self.send_json(ok)
         if path == "/api/secret":
@@ -677,6 +713,11 @@ def open_ui(url):
 
 def serve(port=None, open_browser=True):
     port = int(port or cfg.get("port", 8771))
+    redact.enabled = cfg.get("redact", True) is not False
+    try:
+        redact.learn(cfg.secret_values())
+    except Exception:  # noqa
+        pass
     url = "http://127.0.0.1:%d" % port
     try:
         httpd = Server(("127.0.0.1", port), Handler)

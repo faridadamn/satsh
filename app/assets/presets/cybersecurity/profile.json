@@ -1,0 +1,11 @@
+{
+  "id": "cybersecurity",
+  "name": "Cyber Security",
+  "emoji": "🛡️",
+  "desc": "Satpam siber: audit & hardening server, cek kebocoran secret, cek keamanan web app, triase insiden",
+  "provider": "",
+  "toolsOff": [
+    "control",
+    "supabase"
+  ]
+}

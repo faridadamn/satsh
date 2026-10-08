@@ -1,0 +1,10 @@
+{
+  "id": "devops",
+  "name": "DevOps",
+  "emoji": "🚀",
+  "desc": "Ngurus VPS: rilis aman dengan rollback, backup & restore, Docker, Nginx + SSL, monitoring",
+  "provider": "",
+  "toolsOff": [
+    "control"
+  ]
+}

@@ -9,10 +9,10 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from . import errlog, presets
+from . import errlog, presets, redact, skill_push
 from . import markas_client as markas
 from . import llm as llm_mod
-from .brain import Brain, CronJob, now_ms, title_from
+from .brain import Brain, CronJob, new_agent_soul, now_ms, title_from
 from .config import cfg, new_id
 from .ssh import ssh
 from .tools import TOOLS, clip
@@ -115,7 +115,7 @@ class Agent:
 
     def state(self, sid):
         r = self.runs.get(sid)
-        return {"busy": bool(r), "status": r["status"] if r else ""}
+        return {"busy": bool(r), "status": redact.text(r["status"]) if r else ""}
 
     def _emit_session(self, s):
         bus.emit("session", {"id": s["id"], **self.state(s["id"])})
@@ -305,7 +305,7 @@ class Agent:
             ev = threading.Event()
             p = {"id": aid, "sid": sid, "tool": tool["name"], "args": args, "event": ev, "answer": "no"}
             self.pending[aid] = p
-            bus.emit("approval", {"id": aid, "sid": sid, "tool": tool["name"], "args": args})
+            bus.emit("approval", {"id": aid, "sid": sid, "tool": tool["name"], "args": redact.value(args)})
             ev.wait(timeout)
             self.pending.pop(aid, None)
             bus.emit("approval_done", {"id": aid})
@@ -318,7 +318,7 @@ class Agent:
             p["event"].set()
 
     def pending_list(self):
-        return [{k: p[k] for k in ("id", "sid", "tool", "args")} for p in self.pending.values()]
+        return [dict({k: p[k] for k in ("id", "sid", "tool")}, args=redact.value(p["args"])) for p in self.pending.values()]
 
     # ================================================== context window
     def context_window(self, s):
@@ -454,28 +454,68 @@ Aturan: jangan duplikat isi memori yang udah ada, jangan simpen hal sepele/semen
             if act == "create":
                 if pb.skill(name):
                     raise ValueError('Skill "%s" udah ada — pakai edit/patch' % name)
-                n = pb.save_skill(a.get("content") or "", expect=name)
+                if pb.is_builtin(name):
+                    raise ValueError(pb.locked_msg(name))
+                n = pb.save_skill(a.get("content") or "", expect=name, by_agent=True)
                 note('skill "%s" dibikin' % n)
                 return 'Skill "%s" kesimpen.' % n
             s = pb.skill(name)
             if not s:
                 raise ValueError('Skill "%s" ga ada' % name)
             if act == "edit":
-                pb.save_skill(a.get("content") or "", expect=name)
+                pb.save_skill(a.get("content") or "", expect=name, by_agent=True)
                 note('skill "%s" diupdate' % name)
                 return 'Skill "%s" diupdate.' % name
             if act == "patch":
                 old = a.get("old_text") or ""
                 if not old or old not in s["raw"]:
                     raise ValueError("old_text ga ketemu di skill")
-                pb.save_skill(s["raw"].replace(old, a.get("new_text") or "", 1), expect=name)
+                pb.save_skill(s["raw"].replace(old, a.get("new_text") or "", 1), expect=name, by_agent=True)
                 note('skill "%s" diperbaiki' % name)
                 return 'Skill "%s" di-patch.' % name
             if act == "delete":
-                pb.delete_skill(name)
+                pb.delete_skill(name, by_agent=True)
                 note('skill "%s" dihapus' % name)
                 return 'Skill "%s" dihapus.' % name
             raise ValueError("action ga dikenal")
+
+        @T("skill_push", 'Kirim (push) skill satsh ke agent lain di server lewat SSH — sekarang: Hermes (~/.hermes/skills/satsh/<nama>/SKILL.md, '
+           'kepakai di sesi Hermes berikutnya). action: status (bandingin skill di sini vs di server) | push (names: daftar nama skill; '
+           '"markas" = skill Markas bawaan buat Hermes). host: nama server (default: server Markas).',
+           {"action": {"type": "string", "enum": ["status", "push"]}, "names": {"type": "array", "items": S}, "host": S}, ["action"], risky=True)
+        def _sp(a):
+            hn = (a.get("host") or "").strip()
+            h = ssh.find(hn) if hn else markas.host()
+            if h is None:
+                raise ValueError("Sebutin host-nya (server tempat Hermes jalan).")
+            st = skill_push.status(h)
+            if not st["hasAgent"]:
+                raise ValueError("Hermes ga ketemu di %s (~/.hermes ga ada)." % h["label"])
+            mk = skill_push.markas_skill()
+            alls = list(pb.skills) + ([mk] if mk and not pb.skill("markas") else [])
+            if a.get("action") == "status":
+                lab = {"same": "sama", "differs": "BEDA", "missing": "belum ada"}
+                names = {s["name"] for s in alls}
+                only = [r["name"] for r in st["remote"] if r["name"] not in names]
+                return "%s · Hermes\n%s%s" % (h["label"], "\n".join("- %s: %s" % (s["name"], lab[skill_push.state_of(st, s)]) for s in alls),
+                                               ("\nCuma ada di Hermes: " + ", ".join(only)) if only else "")
+            names = [str(n).strip().lower() for n in (a.get("names") or []) if str(n).strip()]
+            if not names:
+                raise ValueError("names wajib (daftar skill yang mau di-push)")
+            done, errs = [], []
+            for n in names:
+                sk = next((s for s in alls if s["name"] == n), None)
+                if sk is None:
+                    errs.append("%s: ga ada di skill profil ini" % n)
+                    continue
+                try:
+                    done.append("%s → %s" % (n, skill_push.push(h, sk)))
+                except Exception as e:  # noqa
+                    errs.append(str(e))
+            if done:
+                note("%d skill di-push ke Hermes" % len(done))
+            return ("Ke-push:\n%s\nHermes bakal pakai di sesi berikutnya." % "\n".join(done) if done else "Ga ada yang ke-push.") + \
+                (("\nGagal: " + " | ".join(errs)) if errs else "")
 
         @T("agent_profile", 'Bikin/ubah PROFIL AGENT (persona baru dengan soul, skill, memori & tools sendiri), mis. dari isi thread/postingan/repo yang user kasih. '
            'action: list | create | update | add_skill. create: name, emoji, desc, soul (markdown: siapa dia, gaya, prinsip & alur kerja yang JELAS), '
@@ -504,23 +544,29 @@ Aturan: jangan duplikat isi memori yang udah ada, jangan simpen hal sepele/semen
             done, errs = [], []
             soul = (a.get("soul") or "").strip()
             if soul:
-                v.save_soul(soul)
+                v.save_soul(new_agent_soul(p["name"], p.get("desc"), soul) if act == "create" else soul)
                 done.append("soul")
             elif act == "create":
-                v.save_soul("# SOUL — %s\n\n%s\n" % (p["name"], p.get("desc") or "Kamu agent %s." % p["name"]))
+                v.save_soul(new_agent_soul(p["name"], p.get("desc")))
             src = (a.get("copy_skills_from") or "").strip()
             copied = 0
             if src.startswith("preset:"):
                 for rel, text in presets.load(src[7:]).items():
                     if rel.startswith("skills/"):
+                        n = rel.split("/")[1]
+                        if v.is_builtin(n) and v.skill(n):
+                            continue  # never overwrite a built-in skill of the target
                         from .brain import _rw
                         _rw(os.path.join(v.root, *rel.split("/")), text)
                         copied += 1
                 b.reload_profile(p["id"])
             elif src:
                 for sk in b.view(src).skills:
-                    b.view(p["id"]).save_skill(sk["raw"])
-                    copied += 1
+                    try:
+                        b.view(p["id"]).save_skill(sk["raw"], by_agent=True)
+                        copied += 1
+                    except ValueError:
+                        pass  # built-in skill of the target: left as is
             if copied:
                 done.append("%d skill disalin" % copied)
             pv = b.view(p["id"])
@@ -528,7 +574,7 @@ Aturan: jangan duplikat isi memori yang udah ada, jangan simpen hal sepele/semen
                 n = re.sub(r"[^a-z0-9-]+", "-", (sk.get("name") or "").strip().lower())
                 desc = (sk.get("description") or "").replace("\n", " ").strip()
                 try:
-                    pv.save_skill("---\nname: %s\ndescription: %s\n---\n%s" % (n, json.dumps(desc, ensure_ascii=False), sk.get("content") or ""))
+                    pv.save_skill("---\nname: %s\ndescription: %s\n---\n%s" % (n, json.dumps(desc, ensure_ascii=False), sk.get("content") or ""), by_agent=True)
                     done.append("skill " + n)
                 except Exception as e:  # noqa
                     errs.append("%s: %s" % (n, e))

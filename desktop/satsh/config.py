@@ -33,6 +33,7 @@ DEFAULTS = {
     "cloudflared": "",
     "telegramChat": "",
     "remoteEnabled": False,
+    "redact": True,  # mask keys/passwords/IPs in what the agent shows while working
 }
 
 
@@ -140,12 +141,19 @@ class Config:
         with _lock:
             if value:
                 self.secrets[key] = base64.b64encode(_protect(value.encode("utf-8"))).decode("ascii")
+                from . import redact
+
+                redact.learn([value])
             else:
                 self.secrets.pop(key, None)
             tmp = _SECRETS + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(self.secrets, f)
             os.replace(tmp, _SECRETS)
+
+    def secret_values(self):
+        """Every stored secret (for redact.learn)."""
+        return [v for v in (self.secret(k) for k in list(self.secrets)) if v]
 
     def has_secret(self, key):
         return bool(self.secrets.get(key))

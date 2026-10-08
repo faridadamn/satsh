@@ -12,6 +12,7 @@ import '../theme.dart';
 import 'error_log_page.dart';
 import '../widgets.dart';
 import 'file_viewer_page.dart';
+import 'skill_push_sheet.dart';
 
 /// Soul · Memori · Skill · Jadwal
 class BrainPage extends StatefulWidget {
@@ -296,12 +297,50 @@ class _SkillsTab extends StatelessWidget {
         listenable: Brain.i,
         builder: (context, _) {
           final skills = Brain.i.skills;
+          final pb = Brain.i.active;
+          final changed = skills.where(pb.isModified).length, gone = pb.missingBuiltins.length;
           return Stack(children: [
             ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
               children: [
-                Text('Prosedur yang bisa dipanggil agent (atau lu lewat /nama-skill di chat). Agent juga bisa bikin & benerin skill sendiri.',
+                Text('Prosedur yang bisa dipanggil agent (atau lu lewat /nama-skill di chat). Agent bisa bikin & benerin skill sendiri — '
+                    'kecuali skill BAWAAN: itu cuma lu yang bisa ubah.',
                     style: TextStyle(color: C.muted, fontSize: 13)),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => openSkillPush(context),
+                    icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                    label: const Text('Push ke Hermes'),
+                  ),
+                ),
+                if (changed + gone > 0)
+                  Container(
+                    margin: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                    decoration: BoxDecoration(color: C.amber.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
+                    child: Row(children: [
+                      const Icon(Icons.restore_rounded, color: C.amber, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                            'Skill bawaan: ${[if (changed > 0) '$changed diubah', if (gone > 0) '$gone kehapus'].join(', ')}',
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          if (!await confirm(context, 'Kembaliin skill bawaan?',
+                              'Semua skill bawaan balik ke versi asli dari app. Skill buatan lu/agent ga kesentuh.', ok: 'Kembaliin')) {
+                            return;
+                          }
+                          final n = await pb.resetAllBuiltins();
+                          toast('$n skill bawaan dikembaliin');
+                        },
+                        child: const Text('Kembaliin default'),
+                      ),
+                    ]),
+                  ),
                 const SizedBox(height: 12),
                 for (var i = 0; i < skills.length; i++)
                   StaggerIn(
@@ -323,7 +362,15 @@ class _SkillsTab extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('/${skills[i].name}', style: const TextStyle(fontFamily: monoFont, fontWeight: FontWeight.w700)),
+                              Row(children: [
+                                Flexible(
+                                    child: Text('/${skills[i].name}',
+                                        overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: monoFont, fontWeight: FontWeight.w700))),
+                                if (pb.isBuiltin(skills[i].name)) ...[
+                                  const SizedBox(width: 6),
+                                  _Tag(pb.isModified(skills[i]) ? 'bawaan · diubah' : 'bawaan', pb.isModified(skills[i]) ? C.amber : C.cyan),
+                                ],
+                              ]),
                               const SizedBox(height: 3),
                               Text(skills[i].description,
                                   maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: C.muted, fontSize: 12.5)),
@@ -390,6 +437,22 @@ class _SkillEditorState extends State<SkillEditor> {
           title: Text(widget.skill == null ? 'Skill baru' : '/${widget.skill!.name}'),
           actions: [
             if (widget.skill != null) ...[
+              if (Brain.i.active.isModified(widget.skill!))
+                IconButton(
+                  tooltip: 'Kembaliin ke bawaan',
+                  icon: const Icon(Icons.restore_rounded, color: C.amber),
+                  onPressed: () async {
+                    if (!await confirm(context, 'Kembaliin ke bawaan?', 'Perubahan lu di /${widget.skill!.name} bakal ilang.', ok: 'Kembaliin')) return;
+                    await Brain.i.active.resetSkill(widget.skill!.name);
+                    if (context.mounted) Navigator.pop(context);
+                    toast('/${widget.skill!.name} balik ke versi bawaan');
+                  },
+                ),
+              IconButton(
+                tooltip: 'Push ke Hermes',
+                icon: const Icon(Icons.cloud_upload_rounded),
+                onPressed: () => openSkillPush(context, only: widget.skill!.name),
+              ),
               IconButton(
                 tooltip: 'Copy',
                 icon: const Icon(Icons.copy_rounded),
@@ -411,7 +474,33 @@ class _SkillEditorState extends State<SkillEditor> {
             IconButton(icon: const Icon(Icons.save_rounded, color: C.cyan), onPressed: _save),
           ],
         ),
-        body: SafeArea(top: false, child: CodeEditor(controller: _ctl, undo: _undo)),
+        body: SafeArea(
+          top: false,
+          child: Column(children: [
+            if (widget.skill != null && Brain.i.active.isBuiltin(widget.skill!.name))
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                color: C.cyan.withValues(alpha: 0.08),
+                child: Text('Skill bawaan — agent cuma bisa baca. Lu bebas edit; tombol ↺ buat balik ke versi asli.',
+                    style: TextStyle(color: C.muted, fontSize: 12)),
+              ),
+            Expanded(child: CodeEditor(controller: _ctl, undo: _undo)),
+          ]),
+        ),
+      );
+}
+
+class _Tag extends StatelessWidget {
+  const _Tag(this.text, this.color);
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(7)),
+        child: Text(text, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w700)),
       );
 }
 

@@ -75,6 +75,9 @@ Host _host(Object? name) {
   return h;
 }
 
+/// Host by id / label / address (what the agent types).
+Host findHost(Object? name) => _host(name);
+
 Future<String> runSsh(Host h, String cmd, {int timeoutS = 60}) async {
   final c = await SshManager.i.client(h);
   final session = await c.execute(cmd);

@@ -2,7 +2,12 @@
 import os
 
 BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets")
-NAMES = {"web-designer": "🎨 Web Designer — UI web anti-slop (AGENTS.md + DESIGN.md + gambar referensi)"}
+NAMES = {
+    "web-designer": "🎨 Web Designer — UI web anti-slop (AGENTS.md + DESIGN.md + gambar referensi)",
+    "cybersecurity": "🛡️ Cyber Security — audit & hardening server, cek secret bocor, keamanan web app, triase insiden",
+    "devops": "🚀 DevOps — rilis aman + rollback, backup & restore, Docker, Nginx + SSL",
+    "code-reviewer": "🔍 Code Reviewer — review diff dengan bukti, jalanin tes, audit dependency",
+}
 
 
 def ids():
