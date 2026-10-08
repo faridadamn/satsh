@@ -14,7 +14,7 @@ chmod +x "$HOME/.local/bin/markas" "$D/markas.py"
 "$PY" "$D/markas.py" init
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *)
   for rc in "$HOME/.bashrc" "$HOME/.profile"; do
-    [ -f "$rc" ] && ! grep -q 'markas-path' "$rc" && echo 'export PATH="$HOME/.local/bin:$PATH" # markas-path' >> "$rc"
+    if [ -f "$rc" ] && ! grep -q 'markas-path' "$rc"; then echo 'export PATH="$HOME/.local/bin:$PATH" # markas-path' >> "$rc"; fi
   done ;;
 esac
 if [ -d "$HOME/.hermes" ] && [ -f "$D/hermes-SKILL.md" ]; then
@@ -22,7 +22,12 @@ if [ -d "$HOME/.hermes" ] && [ -f "$D/hermes-SKILL.md" ]; then
   cp "$D/hermes-SKILL.md" "$HOME/.hermes/skills/markas/SKILL.md"
   echo "HERMES_SKILL_OK"
 fi
-HB=$(command -v hermes 2>/dev/null || bash -lc 'command -v hermes' 2>/dev/null </dev/null)
-[ -z "$HB" ] && for p in "$HOME/.local/bin/hermes" "$HOME/.hermes/bin/hermes" /usr/local/bin/hermes; do [ -x "$p" ] && HB="$p" && break; done
-[ -n "$HB" ] && echo "HERMES_CLI_OK $HB"
+# Hermes is optional: every probe below must tolerate "not found" under set -e.
+HB=$(command -v hermes 2>/dev/null || bash -lc 'command -v hermes' 2>/dev/null </dev/null || true)
+if [ -z "$HB" ]; then
+  for p in "$HOME/.local/bin/hermes" "$HOME/.hermes/bin/hermes" /usr/local/bin/hermes; do
+    if [ -x "$p" ]; then HB="$p"; break; fi
+  done
+fi
+if [ -n "$HB" ]; then echo "HERMES_CLI_OK $HB"; fi
 echo "MARKAS_OK $("$PY" "$D/markas.py" --version)"

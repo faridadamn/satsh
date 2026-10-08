@@ -5,3 +5,4 @@ desktop/wheels/
 __pycache__/
 *.pyc
 .DS_Store
+app/test/failures/

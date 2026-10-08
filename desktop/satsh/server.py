@@ -90,6 +90,22 @@ class Handler(BaseHTTPRequestHandler):
         h = self.headers
         return bool(h.get("Cf-Connecting-Ip") or h.get("X-Forwarded-For") or h.get("Cf-Ray")) or self.client_address[0] not in ("127.0.0.1", "::1")
 
+    def origin_ok(self, strict=True):
+        """Blocks cross-site requests (CSRF) and DNS rebinding.
+
+        Local requests must address us as 127.0.0.1/localhost:<port>. If the browser
+        sends an Origin, it must be this same origin; "null" (sandboxed pages served
+        from a host) is refused on [strict] paths so they can't drive the API."""
+        host = (self.headers.get("Host") or "").strip().lower()
+        if not self.is_remote:
+            port = self.server.server_address[1]
+            if host not in ("127.0.0.1:%d" % port, "localhost:%d" % port):
+                return False
+        origin = (self.headers.get("Origin") or "").strip().lower().rstrip("/")
+        if not origin or not strict:
+            return True
+        return origin in ("http://" + host, "https://" + host)
+
     def authed(self):
         if not self.is_remote:
             return True
@@ -126,7 +142,7 @@ class Handler(BaseHTTPRequestHandler):
         size = os.path.getsize(path)
         self._send_stream(lambda off, ln: _local_reader(path, off, ln), size, ctype or mimetypes.guess_type(path)[0] or "application/octet-stream", download)
 
-    def _send_stream(self, reader, size, ctype, download=None):
+    def _send_stream(self, reader, size, ctype, download=None, untrusted=False):
         rng = self.headers.get("Range")
         start, end, code = 0, size - 1, 200
         if rng and rng.startswith("bytes=") and size:
@@ -147,6 +163,10 @@ class Handler(BaseHTTPRequestHandler):
         length = max(0, end - start + 1) if size else 0
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        if untrusted:
+            # Files from a host run in an opaque origin: scripts work, the satsh API doesn't.
+            self.send_header("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads")
+            self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(length))
         self.send_header("Cache-Control", "no-store")
@@ -170,6 +190,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
         try:
+            # Pages served from a host (raw/site) may fetch their own assets with Origin: null.
+            if not self.origin_ok(strict=not path.startswith(("/api/sftp/raw", "/api/sftp/site/"))):
+                return self.send_json({"error": "forbidden"}, 403)
             if path == "/api/login-needed":
                 return self.send_json({"needed": not self.authed()})
             if path.startswith("/api/") or path == "/files":
@@ -195,6 +218,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
         try:
+            if not self.origin_ok():
+                return self.send_json({"error": "forbidden"}, 403)
             if path == "/api/login":
                 pw = cfg.secret("webPassword") or ""
                 given = (self.jbody().get("password") or "")
@@ -285,7 +310,7 @@ class Handler(BaseHTTPRequestHandler):
                 ctype = mimetypes.guess_type(p)[0] or "application/octet-stream"
                 if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
                     ctype += "; charset=utf-8"
-                self._send_stream(reader, st.st_size or 0, ctype, posixpath.basename(p) if q.get("dl") else None)
+                self._send_stream(reader, st.st_size or 0, ctype, posixpath.basename(p) if q.get("dl") else None, untrusted=True)
             finally:
                 sf.close()
             return

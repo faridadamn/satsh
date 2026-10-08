@@ -68,6 +68,7 @@ void main() {
     Providers.saveAll([ProviderCfg(id: 'a', kind: 'codex', name: 'ChatGPT', model: 'gpt-5.5'), ProviderCfg(id: 'b', kind: 'openai', name: 'DeepSeek', base: 'https://api.deepseek.com/v1', model: 'deepseek-chat'), ProviderCfg(id: 'c', kind: 'gemini', name: 'Gemini', model: 'gemini-2.5-pro', disabled: true)]);
     await Brain.i.setEntries('user', ['Adam, driver ojol & motion designer. Suka jawaban singkat, bahasa santai.', 'Lagi bangun Payu (SaaS UMKM) dan agent Leo.']);
     await Brain.i.setEntries('memory', ['Leo jalan di laptop Win7, GUI di port 8770.', 'VPS Jakarta: app Payu di /var/www/payu, restart pakai pm2 restart payu.']);
+    CronJob.clock = () => DateTime(2026, 10, 5, 6); // golden shows "berikutnya 10-05 07:00"
     Brain.i.jobs.add(CronJob(id: 'j1', name: 'Cek server pagi', prompt: 'Cek disk & RAM semua server, kabarin kalau ada yang > 85%', dailyAt: '07:00', lastResult: 'Semua aman, disk VPS 30%.'));
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final (i, h) in [

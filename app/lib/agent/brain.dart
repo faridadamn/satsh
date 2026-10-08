@@ -157,8 +157,11 @@ class CronJob {
           ? '${m ~/ 60} jam'
           : '$m menit';
 
+  /// Clock for [nextRun] without an explicit time (tests pin it).
+  static DateTime Function() clock = DateTime.now;
+
   DateTime nextRun([DateTime? now]) {
-    now ??= DateTime.now();
+    now ??= clock();
     final last = lastRun == null ? null : DateTime.fromMillisecondsSinceEpoch(lastRun!);
     final created = DateTime.fromMillisecondsSinceEpoch(createdAt);
     if (dailyAt != null) {
