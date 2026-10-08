@@ -9,6 +9,7 @@ import '../store.dart';
 import 'brain.dart';
 import 'external.dart';
 import 'llm.dart';
+import 'mission.dart';
 import 'model_tools.dart';
 import 'presets.dart';
 import 'providers.dart';
@@ -132,7 +133,7 @@ class AgentController extends ChangeNotifier {
 
   Future<void> openSession(String id) async {
     if (busy) return;
-    final s = await brain.openSession(id);
+    final s = MissionRunner.i.liveSession(id) ?? await brain.openSession(id);
     if (s == null) return;
     if (s.profile != null && s.profile != brain.activeId && brain.profile(s.profile) != null) await brain.setActive(s.profile!);
     session = s;
@@ -236,6 +237,15 @@ ${worker ? '' : '''
   Future<void> send(String text, {List<String> images = const []}) async {
     text = text.trim();
     if (busy || (text.isEmpty && images.isEmpty)) return;
+    // a running mission's chat: the message goes to the mission, read at its next iteration
+    final mission = MissionRunner.i.missions.where((m) => m.sessionId == session.id && m.status != 'done').firstOrNull;
+    if (mission != null && text.isNotEmpty) {
+      await MissionRunner.i.note(mission, text);
+      messages.add(Msg(role: 'event', text: '📨 Pesan lu dikirim ke misi — dibaca di awal iterasi berikutnya${mission.active ? '' : ' (misinya lagi berhenti, tap Lanjut di halaman Misi)'}'));
+      await brain.saveSession(session);
+      notifyListeners();
+      return;
+    }
     // slash commands
     if (text == '/new') return newChat();
     final ext = providerOverride == null ? Providers.primary : null;
@@ -405,7 +415,7 @@ ${worker ? '' : '''
             role: 'tool',
             callId: c.id,
             name: c.name,
-            text: 'Ditolak otomatis: aksi berisiko ga diizinin di mode ini (jadwal tanpa izin aksi berisiko).',
+            text: 'Ditolak otomatis: aksi berisiko ga diizinin di mode ini. Jangan nunggu — kalau penting, catat buat user (mission_ask kalau lagi misi) lalu kerjain hal lain.',
             isError: true);
       }
       ctx.onStatus?.call('Nunggu izin lu…');
@@ -591,6 +601,26 @@ ${pb.skillsIndex()}''',
     final note = onNote ?? (_) {};
     final pb = ctx.profile ?? brain.active;
     return [
+      AgentTool(
+        const ToolSpec(
+          name: 'mission_start',
+          description:
+              'Mulai MISI otonom: agent kerja sendiri iterasi demi iterasi (analisa → kerja → jurnal → lapor) selama HP nyala, sampai tujuan tercapai. Pakai kalau user minta tujuan jangka panjang dikerjain sendiri (mis. "bikin SaaS sampe profit"). User mantau & jawab pertanyaan di halaman Misi.',
+          params: {
+            'goal': {'type': 'string', 'description': 'tujuan misi, lengkap'},
+            'criteria': {'type': 'string', 'description': 'kriteria sukses yang terukur (mis. "ada 1 pembayaran masuk")'},
+          },
+          required: ['goal'],
+        ),
+        group: 'brain',
+        risky: true,
+        (a) async {
+          final goal = '${a['goal'] ?? ''}'.trim();
+          if (goal.length < 10) throw 'Tujuannya terlalu pendek, jelasin lebih lengkap.';
+          final m = await MissionRunner.i.create(goal: goal, criteria: '${a['criteria'] ?? ''}', profile: pb.id);
+          return 'Misi dimulai (id ${m.id.substring(0, 8)}). Agent jalan sendiri di background; laporan tiap iterasi masuk notifikasi & halaman Misi (ikon 🚀 di atas).';
+        },
+      ),
       ...modelTools(
         session: ctx.session,
         onSwitch: (llm, label) async {

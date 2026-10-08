@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../agent/mission.dart';
+import 'missions_page.dart';
 import '../agent/agent.dart';
 import '../agent/brain.dart';
 import '../agent/llm.dart';
@@ -215,7 +217,7 @@ class _AgentPageState extends State<AgentPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([a, Store.i, Brain.i]),
+      listenable: Listenable.merge([a, Store.i, Brain.i, MissionRunner.i]),
       builder: (context, _) {
         final unread = Brain.i.sessions.where((m) => m.unread).length;
         // tool results indexed by call id
@@ -229,6 +231,7 @@ class _AgentPageState extends State<AgentPage> {
               padding: const EdgeInsets.fromLTRB(8, 14, 4, 6),
               child: Row(children: [
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   tooltip: 'Sesi',
                   icon: Badge(
                     isLabelVisible: unread > 0,
@@ -263,16 +266,30 @@ class _AgentPageState extends State<AgentPage> {
                   ),
                 ),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   tooltip: 'Chat baru',
                   icon: const Icon(Icons.add_comment_rounded),
                   onPressed: a.busy ? null : a.newChat,
                 ),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Misi',
+                  icon: Badge(
+                    isLabelVisible: MissionRunner.i.openAsks > 0,
+                    label: Text('${MissionRunner.i.openAsks}'),
+                    backgroundColor: C.pink,
+                    child: Icon(Icons.rocket_launch_rounded, color: MissionRunner.i.anyActive ? C.green : null),
+                  ),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MissionsPage())),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
                   tooltip: 'Otak: soul, memori, skill, jadwal',
                   icon: const Icon(Icons.psychology_rounded),
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BrainPage())),
                 ),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   tooltip: 'Pengaturan agent',
                   icon: const Icon(Icons.tune_rounded),
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage(section: 'agent'))),

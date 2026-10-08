@@ -2,7 +2,7 @@
 
 SSH client Android yang "gw banget": terminal, SFTP, tunnel, agent AI di dalam aplikasi, Mode Server (HP lain bisa SSH ke HP ini), plus versi desktop buat Windows 7 / 10 / 11.
 
-Versi app: **2.5.2** · desktop **2.4.6**
+Versi app: **2.6.0** · desktop **2.4.6**
 
 ## Isi repo
 
@@ -23,6 +23,8 @@ Versi app: **2.5.2** · desktop **2.4.6**
 - **Agent**: tool HP / SSH / SFTP / Supabase / HTTP / **browser riset** (bisa dipantau live, tanpa login)
   - Otak ala Hermes: soul, memori, skill, sesi, todo, sub-agent, jadwal (cron), review, kompresi konteks
   - Provider berurutan + fallback: OpenAI-compatible, Gemini (API key), ChatGPT (login Codex)
+  - **Misi (otonom)**: kasih tujuan besar (mis. "bikin SaaS sampai profit"), agent kerja sendiri iterasi demi iterasi selama HP nyala — analisa kerjaan sebelumnya → kerja → jurnal → lapor (notifikasi). Yang butuh lu jadi pertanyaan yang ga nge-block; provider error → tidur & bangun sendiri pas provider normal; agent bisa tidur sendiri kalau lagi nunggu; batas langkah/iterasi per hari bisa diatur (default bebas); HP mati = misi berhenti, nyala lagi tinggal tap Lanjut
+  - Agent bisa ganti model sendiri per chat (`model_switch`) dan bikin gambar pakai model gambar (`image_generate`)
   - **Agent eksternal**: ngobrol sama `agy` (Antigravity CLI) di Termux/proot lewat SSH; soul-nya tetap di sana
 - **Profil agent**: beberapa persona, masing-masing soul/memori/skill/model/tools sendiri; profil user dipakai bareng
 - **Agent preset bawaan**: 🎨 Web Designer, 🛡️ Cyber Security (audit & hardening server, secret bocor, keamanan web, triase insiden), 🚀 DevOps (rilis aman + rollback, backup & restore, Docker, Nginx + SSL), 🔍 Code Reviewer (review diff dengan bukti, tes, audit dependency)

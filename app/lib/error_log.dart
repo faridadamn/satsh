@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'redact.dart';
 
-const appVersion = '2.5.2 (23)';
+const appVersion = '2.6.0 (24)';
 
 /// One captured error with enough context to find the bug.
 class ErrorEntry {

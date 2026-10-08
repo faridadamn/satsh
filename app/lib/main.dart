@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'agent/agent.dart';
+import 'agent/mission.dart';
 import 'agent/providers.dart';
 import 'error_log.dart';
 import 'keepalive.dart';
@@ -34,6 +35,7 @@ Future<void> main() async {
   await Store.i.load();
   await Providers.migrate();
   await AgentController.i.load();
+  await MissionRunner.i.load();
   C.light = Store.i.get<String>('theme', 'dark') == 'light';
   SshManager.i.prompts = UiPrompts();
   KeepAliveService.i.init();
@@ -48,6 +50,10 @@ Future<void> main() async {
   };
   CronRunner.i.onDone = KeepAliveService.i.notify;
   CronRunner.i.start();
+  MissionRunner.i.notifier = (title, body, id) {
+    KeepAliveService.i.notify(title, body);
+    Native.notifyIfAway(title, body, id: id);
+  };
   PhoneServer.i.init().ignore();
   runApp(const SatshApp());
 }

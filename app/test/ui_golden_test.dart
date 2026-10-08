@@ -8,6 +8,8 @@ import 'package:satsh/agent/agent.dart';
 import 'package:satsh/agent/brain.dart';
 import 'package:satsh/agent/providers.dart';
 import 'package:satsh/pages/brain_page.dart';
+import 'package:satsh/agent/mission.dart';
+import 'package:satsh/pages/missions_page.dart';
 import 'package:satsh/agent/llm.dart';
 import 'package:satsh/main.dart';
 import 'package:satsh/pages/agent_page.dart';
@@ -217,6 +219,38 @@ void main() {
     }
     a.messages.clear();
     a.session.todos = [];
+  });
+
+  Mission sampleMission() => Mission(
+        id: 'm1',
+        goal: 'Bikin produk SaaS buat UMKM dari nol sampai menghasilkan profit',
+        criteria: 'Pembayaran masuk > biaya server per bulan',
+        status: 'running',
+        statusNote: 'Iterasi 7: Jalanin di VPS Jakarta…',
+        iteration: 7,
+        lastIterAt: DateTime.now().subtract(const Duration(minutes: 4)).millisecondsSinceEpoch,
+        lastReport: '**Iterasi 6**: landing page *Kasirku* udah live di VPS, form daftar nyimpen ke Supabase.\nBerikutnya: halaman harga + checkout.',
+        journal: '## Tahap 3/7 — MVP\n- [x] Riset: 3 ide divalidasi → pilih **kasir UMKM**\n- [x] Landing live (cek: HTTP 200)\n- [ ] Checkout (butuh Midtrans)\n\n**Pelajaran**: build Flutter web kegedean buat VPS 1GB → pakai HTML statis.',
+        asks: [
+          MissionAsk(id: 'a1', text: 'Daftar akun Midtrans pakai KTP & rekening lu, terus kirim server key-nya ke gw', why: 'buat nerima pembayaran'),
+          MissionAsk(id: 'a2', text: 'Beli domain kasirku.id (± Rp200rb/thn)?', why: 'biar keliatan serius'),
+        ],
+      );
+
+  testWidgets('missions list', (t) async {
+    MissionRunner.i.missions = [
+      sampleMission(),
+      Mission(id: 'm2', goal: 'Jagain semua server tetap nyala, benerin sendiri kalau down', status: 'waiting', iteration: 31,
+          statusNote: 'Provider error: HTTP 503 overloaded\nNyoba lagi 2 menit lagi (percobaan 3).'),
+      Mission(id: 'm3', goal: 'Riset 20 produk affiliate paling laku minggu ini', status: 'done', iteration: 4, lastReport: 'Beres: 20 produk + link di Download/affiliate.md'),
+    ];
+    await shot(t, const MissionsPage(), 'missions');
+  });
+
+  testWidgets('mission detail', (t) async {
+    MissionRunner.i.missions = [sampleMission()];
+    await shot(t, const MissionDetailPage(id: 'm1'), 'mission_detail');
+    MissionRunner.i.missions = [];
   });
 
   testWidgets('settings', (t) => shot(t, const SettingsPage(), 'settings'));

@@ -2,6 +2,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'agent/agent.dart';
 import 'agent/brain.dart';
+import 'agent/mission.dart';
 import 'phone_server.dart';
 import 'ssh_manager.dart';
 import 'store.dart';
@@ -61,6 +62,7 @@ class KeepAliveService {
     Brain.i.addListener(sync);
     PhoneServer.i.addListener(sync);
     AgentController.i.addListener(sync);
+    MissionRunner.i.addListener(sync);
   }
 
   bool get enabled => Store.i.get<bool>('keepAlive', true);
@@ -70,7 +72,8 @@ class KeepAliveService {
     final f = SshManager.i.forwards.length;
     final j = Brain.i.jobs.where((e) => e.enabled).length;
     final srv = PhoneServer.i.running;
-    final t = [if (AgentController.i.busy) 'agent lagi kerja', if (srv) 'mode server', if (s > 0) '$s sesi', if (f > 0) '$f tunnel', if (j > 0) '$j jadwal'].join(' · ');
+    final mi = MissionRunner.i.missions.where((m) => m.active).length;
+    final t = [if (mi > 0) '$mi misi jalan', if (AgentController.i.busy) 'agent lagi kerja', if (srv) 'mode server', if (s > 0) '$s sesi', if (f > 0) '$f tunnel', if (j > 0) '$j jadwal'].join(' · ');
     return _event == null ? t : '$_event\n$t';
   }
 
@@ -83,7 +86,8 @@ class KeepAliveService {
               SshManager.i.forwards.isNotEmpty ||
               Brain.i.jobs.any((e) => e.enabled) ||
               PhoneServer.i.running ||
-              AgentController.i.busy);
+              AgentController.i.busy ||
+              MissionRunner.i.anyActive);
       if (want && !_running) {
         if (await FlutterForegroundTask.checkNotificationPermission() != NotificationPermission.granted) {
           await FlutterForegroundTask.requestNotificationPermission();
