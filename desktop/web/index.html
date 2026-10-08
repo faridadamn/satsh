@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c0d12">
+<title>satsh</title>
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="vendor/xterm.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <nav id="side"></nav>
+  <main id="main"></main>
+</div>
+<nav id="bottomnav"></nav>
+<div id="toasts"></div>
+<div id="modals"></div>
+<script>
+  // ES5 guard: old browsers (IE11 on Win7) can't run the app
+  if (!window.fetch || !window.Promise || !window.EventSource || !("replaceChildren" in document.body)) {
+    document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;color:#eee;background:#0c0d12;height:100%">' +
+      '<h2>Browser-nya kejadulan bre</h2><p>Buka <b>' + location.href + '</b> pakai <b>Google Chrome 109</b> atau <b>Firefox ESR 115</b> (versi terakhir yang jalan di Windows 7).</p></div>';
+    throw new Error("old browser");
+  }
+</script>
+<script src="vendor/xterm.js"></script>
+<script src="vendor/addon-fit.js"></script>
+<script src="vendor/marked.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

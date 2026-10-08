@@ -1,0 +1,74 @@
+satsh desktop v2.2 - agent + SSH buat Windows 7 / 10 / 11
+==========================================
+
+PASANG (sekali aja)
+1. Install Python (centang "Add Python to PATH" pas install):
+   - Windows 7      : Python 3.8.10 (versi terakhir yang jalan di Win7).
+                      Win7 butuh update KB2533623 (biasanya udah ada kalau Windows-nya update).
+   - Windows 10/11  : Python 3.12 dari python.org (3.8 s/d 3.14 juga bisa).
+   32-bit atau 64-bit dua-duanya didukung.
+2. Extract zip ini ke folder tetap, mis. D:\satsh  (jangan dijalanin dari dalam zip).
+3. Klik 2x install.bat. Dia bakal:
+   - nyari Python yang cocok, bikin .venv, install library dari folder wheels
+     (offline, ga perlu internet - wheel buat Python 3.8 s/d 3.14 udah ada)
+   - bikin shortcut "satsh" di Desktop
+   - nanya mau autostart pas Windows nyala atau ga
+4. UI kebuka di browser: http://127.0.0.1:8771
+   Win7: pakai Chrome 109 / Firefox ESR 115 (IE ga bisa). Win10/11: Chrome / Edge biasa.
+
+UPDATE DARI VERSI LAMA
+Extract versi baru ke folder yang SAMA (timpa), terus klik 2x install.bat lagi.
+Data lu aman: semuanya ada di %USERPROFILE%\.satsh, bukan di folder aplikasi.
+
+PERTAMA KALI
+- Pengaturan > Agent: isi provider (OpenAI / DeepSeek / OpenRouter / Groq / Gemini / custom),
+  API key, model (tombol "Daftar" buat ngambil list model), klik Tes.
+  Bisa tambah beberapa provider: kalau #1 error/limit, otomatis pindah ke #2 (fallback).
+- Host: tambah server SSH lu. Pas pertama connect, cocokin fingerprint-nya.
+
+FITUR
+- Preset Web Designer (baru di 2.2): profil agent kedua buat bikin UI web anti-slop
+  (aturan antislop karya Miqdad Badjuber, MIT) + AGENTS.md + DESIGN.md. Otomatis kepasang
+  sekali; kalau dihapus bisa dipasang lagi dari menu profil.
+- Agent bisa bikin profil agent baru (tool agent_profile) dari isi thread/postingan/repo.
+- Log error (baru di 2.1): Pengaturan > Log error. Semua crash/bug kecatat lengkap sama
+  traceback-nya (file + baris kode). Tombol "Salin semua" / "Download .txt" buat lapor bug.
+  Jawaban agent yang error & jadwal yang GAGAL punya tombol "Lihat log error".
+- Profil agent: beberapa "kepribadian" agent, masing-masing punya soul, memori, skill,
+  model utama & tools sendiri (mis. Payu Ops, Riset, Santai). Ganti lewat chip di sebelah
+  tulisan Agent. "Profil user" (tentang lu) dipakai bareng semua profil.
+- Zip otak agent: Ekspor / Impor zip (di menu profil). Formatnya SAMA PERSIS sama satsh di HP,
+  jadi profil, memori, skill, riwayat chat & jadwal bisa dipindah HP <-> laptop bolak-balik.
+  Impor itu nambahin (memori digabung, ga ketimpa); jadwal hasil impor di-pause dulu.
+- Salin sebagian: tiap blok kode & kutipan di jawaban agent punya tombol Salin sendiri,
+  plus tombol "Salin semua" buat jawaban panjang.
+- Agent: sesi, soul (SOUL.md), memori (Tentang lu + Catatan agent), skill (/nama-skill),
+  todo, sub-agent paralel, jadwal, refleksi otomatis, ringkas konteks (/compress).
+- Tools agent: file laptop, cmd/PowerShell, proses, info laptop, clipboard, screenshot,
+  buka file/URL, SSH exec + SFTP + transfer, Supabase, HTTP GET.
+  Aksi berisiko (hapus/timpa/jalanin perintah) selalu minta izin dulu.
+- Markas (menu kiri): workspace bareng lu & semua agent (satsh, web-designer, Hermes, agy, Muse).
+  Pilih server (mis. adamn) > Pasang Markas. Kalau udah dipasang dari HP, klik "sambungin aja".
+  Isinya target + PIC + progress, pencapaian, obrolan. Data di server itu (~/.markas), lewat SSH.
+  "Mulai rapat": agent nanya Hermes (hermes -z di server), nitip pesan buat agy & Muse
+  (mereka di HP), nyatet progress, terus kirim rangkuman ke lu. "Jadwalkan" = rapat tiap 08:00.
+- Host: terminal (xterm), SFTP + editor + preview Markdown/HTML/gambar/video/audio,
+  bikin & pasang SSH key otomatis.
+- Remote HP: Pengaturan > Remote HP. Set password web, isi lokasi cloudflared.exe,
+  klik Nyalain -> dapet link https://xxx.trycloudflare.com (dikirim ke Telegram kalau diset).
+  Akses dari luar laptop wajib login password.
+
+DATA
+Semua di %USERPROFILE%\.satsh  (settings, host, sesi, memori, skill, jadwal).
+Password & API key dienkripsi pakai akun Windows (DPAPI).
+Format SOUL.md / MEMORY.md / USER.md / skills/*/SKILL.md sama kayak satsh di HP.
+
+MATIIN
+Pengaturan > Tampilan > Matiin satsh. (Nutup tab browser ga bikin satsh mati,
+karena jadwal & tunnel jalan di background.)
+Mau lihat log/error: jalanin satsh.bat (ada jendela console), atau buka %USERPROFILE%\.satsh\satsh.log
+
+KALAU ERROR
+- "Python ga ketemu": install Python (lihat PASANG), centang Add to PATH, buka ulang install.bat.
+- Port 8771 kepake: jalanin  .venv\Scripts\python.exe -m satsh --port 8772
+- Library gagal install: pastiin pakai Python 3.8 (bukan 3.9+ unofficial), lalu ulang install.bat.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_label">satsh · kontrol agent</string>
+    <string name="control_summary">Agent satsh bisa baca layar &amp; tap/ketik di app lain, cuma pas lu suruh.</string>
+    <string name="control_desc">Nyalain ini biar agent satsh bisa ngoperasiin app lain di HP lu: baca isi layar, tap, ketik, swipe, tombol back/home. Agent cuma gerak pas lu kasih tugas, tiap aksi minta izin (kecuali lu izinin semua), ada tombol STOP mengambang, kolom password ga pernah diisi, dan app bank/e-wallet diblokir. Matiin kapan aja di sini.</string>
+</resources>

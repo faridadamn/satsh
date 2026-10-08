@@ -1,0 +1,7 @@
+# Generated / downloaded — rebuild with the scripts (see README)
+app/android/app/src/main/jniLibs/
+desktop/wheels/
+*.apk
+__pycache__/
+*.pyc
+.DS_Store

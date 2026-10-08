@@ -1,0 +1,8 @@
+{
+  "id": "web-designer",
+  "name": "Web Designer",
+  "emoji": "🎨",
+  "desc": "Bikin UI web anti-slop: AGENTS.md + DESIGN.md + gambar referensi",
+  "provider": "",
+  "toolsOff": ["control", "supabase"]
+}
