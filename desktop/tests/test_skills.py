@@ -1,5 +1,5 @@
-"""Built-in skills locked for the agent, new presets + work principles, push skill to Hermes, redaction.
-Desktop side of app/test/skills_lock_push_test.dart + redact_test.dart. Plain asserts, Python 3.8+.
+"""Built-in skills locked for the agent, new presets + work principles, push skill to Hermes, redaction,
+new default skills reaching old installs. Desktop side of the app tests. Plain asserts, Python 3.8+.
 
     python tests/test_skills.py
 """
@@ -37,6 +37,22 @@ def fresh():
 
 def tools(b):
     return {t["name"]: t for t in Agent(brain=b).brain_tools(RunCtx(auto=True))}
+
+
+def new_defaults():
+    b = fresh()
+    ok(b.skill("cek-laptop-bekas") and b.active.is_builtin("cek-laptop-bekas"), "fresh install has cek-laptop-bekas (built-in)")
+    root = tempfile.mkdtemp(prefix="old")
+    with open(os.path.join(root, "SOUL.md"), "w") as f:
+        f.write("# soul lama")
+    os.makedirs(os.path.join(root, "skills", "deploy-git"))
+    with open(os.path.join(root, "skills", "deploy-git", "SKILL.md"), "w") as f:
+        f.write("---\nname: deploy-git\ndescription: punya gw\n---\nx")
+    b = Brain(root)
+    ok(b.skill("cek-laptop-bekas") is not None, "old install gets the new default skill")
+    ok(b.skill("cek-server") is None and b.skill("deploy-git")["description"] == "punya gw", "deleted default stays deleted, edits kept")
+    b.delete_skill("cek-laptop-bekas")
+    ok(Brain(root).skill("cek-laptop-bekas") is None, "deleting the new one sticks")
 
 
 def lock():
@@ -121,7 +137,6 @@ def push():
         only = [r for r in st["remote"] if r["name"] not in {s["name"] for s in b.skills} | {"markas"}]
         ok([r["path"] for r in only] == ["devops/cek-log/SKILL.md"], "Hermes' own skill found in a category folder")
         ok(b.save_skill(skill_push.pull(h, only[0]["path"])) == "cek-log", "pulled into satsh")
-        # the same bytes as the Android app → same hash
         ok(skill_push.hash_of(skill_push.prepare(sk["raw"])) == st["remote"][[r["name"] for r in st["remote"]].index("cek-server")]["hash"], "hash matches file")
     finally:
         skill_push.exec_override = None
@@ -150,6 +165,7 @@ def redaction():
 
 
 if __name__ == "__main__":
+    new_defaults()
     lock()
     new_presets()
     push()

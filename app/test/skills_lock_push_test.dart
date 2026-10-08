@@ -45,11 +45,9 @@ void main() {
         await expectLater(manage.run(args), throwsA(contains('BAWAAN')), reason: '${args['action']}');
       }
       expect(pb.skill('cek-server')!.raw, before);
-      // deleted by the user → the agent still can't put its own version under that name
       await pb.deleteSkill('cek-server');
       await expectLater(
           manage.run({'action': 'create', 'name': 'cek-server', 'content': '---\nname: cek-server\ndescription: x\n---\ny'}), throwsA(contains('BAWAAN')));
-      // own skills stay fully editable
       expect(await manage.run({'action': 'create', 'name': 'punyaku', 'content': '---\nname: punyaku\ndescription: d\n---\n1'}), contains('kesimpen'));
       expect(await manage.run({'action': 'delete', 'name': 'punyaku'}), contains('dihapus'));
       expect(pb.skillsIndex(), contains('[bawaan, read-only]'));
@@ -74,12 +72,11 @@ void main() {
     test('preset skills are built-in for their profile, even after a restart', () async {
       final b = await fresh();
       await b.autoInstallPresets(Presets.all());
-      b.builtinSkills.removeWhere((k, _) => k != 'default'); // simulate next app start
-      await b.autoInstallPresets(Presets.all()); // already installed → only registers
+      b.builtinSkills.removeWhere((k, _) => k != 'default');
+      await b.autoInstallPresets(Presets.all());
       final v = await b.view('cybersecurity');
       expect(v.isBuiltin('audit-server'), isTrue);
       await expectLater(v.saveSkill('---\nname: audit-server\ndescription: x\n---\ny', byAgent: true), throwsA(contains('BAWAAN')));
-      // agent_profile can't overwrite them either
       final out = await tool('agent_profile').run({
         'action': 'add_skill',
         'id': 'cybersecurity',
@@ -172,7 +169,6 @@ void main() {
       await pb.saveSkill('${pb.skill('cek-server')!.raw}\n6. tambahan');
       expect(st.of(pb.skill('cek-server')!), PushState.differs);
 
-      // Hermes made its own skill (in a category folder) → pull it into satsh
       Directory('${home.path}/.hermes/skills/devops/cek-log').createSync(recursive: true);
       File('${home.path}/.hermes/skills/devops/cek-log/SKILL.md')
           .writeAsStringSync("---\nname: cek-log\ndescription: baca log yang ada 'kutip'-nya\n---\n1. journalctl\n");
@@ -184,7 +180,7 @@ void main() {
       expect(await pb.saveSkill(raw), 'cek-log');
     });
 
-    test('skill_push tool: status + push, markas skill included, risky', () async {
+    test('skill_push tool: status + push, risky', () async {
       final b = await fresh();
       Directory('${home.path}/.hermes').createSync();
       await Store.i.saveHost(h, password: 'x');

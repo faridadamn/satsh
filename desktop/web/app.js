@@ -99,7 +99,7 @@ const NAV = [["agent", "Agent", "agent"], ["markas", "Markas", "users"], ["host"
 function renderNav() {
   const unread = S.st ? S.st.sessions.filter((m) => m.unread).length : 0;
   const btn = ([v, l, ic]) => h("button", { class: "navbtn" + (S.view === v ? " on" : ""), onclick: () => setView(v) }, icon(ic), h("span", { class: "lbl" }, l), v === "agent" && unread ? h("span", { class: "badge" }, unread) : null);
-  $("#side").replaceChildren(h("div", { class: "logo grad-text" }, "satsh", h("small", {}, "desktop")), ...NAV.map(btn),
+  $("#side").replaceChildren(h("div", { class: "logo grad-text" }, "satsh", h("small", {}, "desktop " + ((S.st && S.st.version) || ""))), ...NAV.map(btn),
     h("div", { class: "spacer" }), S.st && S.st.tunnel.url ? h("div", { class: "chip", style: { margin: "0 8px" } }, h("span", { class: "dot on" }), "remote on") : null);
   $("#bottomnav").replaceChildren(...NAV.map(btn));
 }
@@ -123,8 +123,13 @@ function connectEvents() {
   es.onmessage = async (e) => {
     const m = JSON.parse(e.data);
     if (m.type === "session") {
-      if (m.data.id === S.sid) { await loadSession(); }
-      soon(async () => { await refresh(); if (S.view === "agent") renderSessionsList(); });
+      if (m.data.statusOnly) {
+        if (m.data.id === S.sid && S.session) { S.session.status = m.data.status; S.session.busy = m.data.busy; updateThinking(); }
+        return;
+      }
+      if (m.data.id === S.sid) scheduleLoad();
+      // sidebar/badges don't need every tick: refresh state at most ~1x/s while the agent works
+      clearTimeout(connectEvents.st); connectEvents.st = setTimeout(async () => { await refresh(); if (S.view === "agent") renderSessionsList(); }, m.data.busy ? 900 : 150);
     } else if (m.type === "approval") showApproval(m.data);
     else if (m.type === "approval_done") { const el = document.getElementById("ap-" + m.data.id); if (el) el.closest(".modal-bg").remove(); }
     else if (m.type === "toast") toast(m.data.title + ": " + m.data.body);
@@ -148,6 +153,19 @@ function showApproval(p) {
 }
 
 // ==================================================================== AGENT
+// Coalesce session refetches: at most one in flight, and one more if something changed meanwhile.
+let loadBusy = false, loadAgain = false;
+async function scheduleLoad() {
+  if (loadBusy) { loadAgain = true; return; }
+  loadBusy = true;
+  try { do { loadAgain = false; await loadSession(); if (loadAgain) await new Promise((r) => setTimeout(r, 150)); } while (loadAgain); }
+  finally { loadBusy = false; }
+}
+function updateThinking() {
+  const el = document.querySelector("#msgs .thinking span");
+  if (el) el.textContent = (S.session && S.session.status) || "Mikir…";
+  else if (S.session && S.session.busy) renderChat();
+}
 async function loadSession() {
   if (!S.sid) { S.session = null; return renderChat(); }
   try { S.session = await api("/api/session?id=" + S.sid); } catch (e) { S.sid = null; S.session = null; localStorage.removeItem("sid"); }
@@ -204,32 +222,54 @@ async function sessionMenu(m) {
 }
 
 const IDEAS = ["Cek disk, RAM, dan proses paling berat di laptop ini", "Cari file PDF terbaru di Downloads", "Cek kesehatan semua server gw", "Rapihin folder Downloads gw"];
+const NODES = new Map(); // render key -> DOM node, reused across renders
+function memo(key, make) {
+  let n = NODES.get(key);
+  if (!n) { n = make(); NODES.set(key, n); }
+  memo.used.add(key);
+  return n;
+}
+memo.used = new Set();
 function renderChat() {
   const box = $("#msgs"); if (!box) return;
   const s = S.session;
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
-  const inner = h("div", { class: "msgs-inner" });
+  const inner = box.firstElementChild && box.firstElementChild.classList.contains("msgs-inner") ? box.firstElementChild : h("div", { class: "msgs-inner" });
+  const kids = [];
+  memo.used = new Set();
+  const sid = s ? s.id : "";
   if (!s || !s.messages.length) {
-    inner.append(h("div", { class: "empty stagger" }, h("div", {}, h("div", { class: "ico" }, icon("agent")), h("h3", {}, "Mau dibantuin apa?"), h("div", {}, "Gw bisa ngoprek file & program di laptop, jalanin perintah, server SSH lu, dan Supabase.")),
+    kids.push(h("div", { class: "empty stagger" }, h("div", {}, h("div", { class: "ico" }, icon("agent")), h("h3", {}, "Mau dibantuin apa?"), h("div", {}, "Gw bisa ngoprek file & program di laptop, jalanin perintah, server SSH lu, dan Supabase.")),
       h("div", { class: "ideas stagger" }, IDEAS.map((t) => h("button", { class: "idea press", onclick: () => send(t) }, h("span", { style: { color: "var(--cyan)" } }, "⚡"), t)))));
   } else {
     const results = {}; s.messages.forEach((m) => { if (m.role === "tool") results[m.callId] = m; });
     s.messages.forEach((m, i) => {
       if (m.role === "tool") return;
-      if (m.role === "event") return inner.append(h("div", { class: "event" }, m.text));
+      const k = sid + "/" + i + "/" + m.role + "/" + (m.text || "").length + "/" + (m.text || "").slice(-40);
+      if (m.role === "event") return kids.push(memo("e" + k, () => h("div", { class: "event" }, m.text)));
       if (m.role === "user") {
-        let text = m.text, tag = null;
-        const sk = /^\[Pakai skill "([^"]+)"\][\s\S]*\nPermintaan user: ([\s\S]*)$/.exec(text);
-        if (sk) { tag = "📘 /" + sk[1]; text = sk[2]; }
-        const cr = /^\[Jadwal "([^"]+)"/.exec(text); if (cr) tag = "⏰ " + cr[1];
-        return inner.append(h("div", { class: "bubble-u" }, tag ? h("div", { class: "tag" }, tag) : null, h("div", {}, text)));
+        return kids.push(memo("u" + k, () => {
+          let text = m.text, tag = null;
+          const sk = /^\[Pakai skill "([^"]+)"\][\s\S]*\nPermintaan user: ([\s\S]*)$/.exec(text);
+          if (sk) { tag = "📘 /" + sk[1]; text = sk[2]; }
+          const cr = /^\[Jadwal "([^"]+)"/.exec(text); if (cr) tag = "⏰ " + cr[1];
+          return h("div", { class: "bubble-u" }, tag ? h("div", { class: "tag" }, tag) : null, h("div", {}, text));
+        }));
       }
-      if (m.text && m.text.trim()) inner.append(answerBubble(m));
-      (m.calls || []).forEach((c) => inner.append(toolChip(c, results[c.id])));
+      if (m.text && m.text.trim()) kids.push(memo("a" + k + (m.isError ? "!" : ""), () => answerBubble(m)));
+      (m.calls || []).forEach((c) => {
+        const r = results[c.id];
+        kids.push(memo("c" + sid + "/" + c.id + "/" + (r ? (r.isError ? "e" : "o") + (r.text || "").length : "-") + (S.expanded.has(c.id) ? "+" : ""), () => toolChip(c, r)));
+      });
     });
-    if (s.busy) inner.append(h("div", { class: "thinking" }, h("i"), h("i"), h("i"), h("span", {}, s.status || "Mikir…")));
+    if (s.busy) kids.push(h("div", { class: "thinking" }, h("i"), h("i"), h("i"), h("span", {}, s.status || "Mikir…")));
   }
-  box.replaceChildren(inner);
+  for (const key of [...NODES.keys()]) if (!memo.used.has(key)) NODES.delete(key);
+  // only touch the DOM where it differs
+  const cur = inner.children;
+  kids.forEach((n, i) => { if (cur[i] !== n) inner.insertBefore(n, cur[i] || null); });
+  while (cur.length > kids.length) inner.lastChild.remove();
+  if (box.firstElementChild !== inner) box.replaceChildren(inner);
   if (nearBottom || (s && s.busy)) box.scrollTop = box.scrollHeight;
   // todo + slash
   const below = $("#below"); below.replaceChildren();
@@ -243,13 +283,24 @@ function renderChat() {
   }
   const sendBtn = $("#sendbtn"); if (sendBtn) { sendBtn.classList.toggle("stop", !!(s && s.busy)); sendBtn.replaceChildren(icon(s && s.busy ? "stop" : "send")); }
 }
+function browserCard(st) {
+  const b = S.st.browser || {};
+  const path = h("input", { class: "field mono", placeholder: "Otomatis (Chrome / Edge). Isi kalau ga ketemu: C:\\...\\chrome.exe" }); path.value = st.browserPath || "";
+  return h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Browser agen"),
+    h("div", { class: "muted small" }, "Agent buka web pakai Chrome/Edge di laptop ini (profil terpisah, login lu di Chrome ga kesentuh). Cuma nyala pas dipakai, mati sendiri kalau 3 menit nganggur. Matiin grupnya di atas kalau laptop berat."),
+    h("div", { class: "mono small", style: { color: b.path ? "var(--green)" : "var(--amber)" } }, b.path ? "✓ " + b.path : "⚠ Chrome / Edge ga ketemu — isi lokasinya di bawah"),
+    h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Tampilin jendela browser"), h("div", { class: "muted small" }, "Buat nonton agent kerja atau login manual. Mati = jalan di belakang layar (lebih ringan).")), sw(!!st.browserShow, (v) => saveSettings({ browserShow: v }))),
+    h("div", { class: "row" }, path, h("button", { class: "btn", onclick: () => saveSettings({ browserPath: path.value.trim() }).then(() => { toast("Kesimpen"); refresh().then(render); }) }, "Simpan")),
+    b.running ? h("div", { class: "row" }, h("span", { class: "muted small", style: { flex: 1 } }, "Lagi nyala: " + (b.title || b.url || "")), h("button", { class: "btn", onclick: () => api("/api/browser/stop", {}).then(() => refresh().then(render)) }, "Tutup browser")) : null);
+}
 function toolChip(c, r) {
   const key = c.id; const open = S.expanded.has(key);
   const a = c.args || {}; const sum = [a.host, a.command || a.path || a.query || a.table || a.url || a.local_path || a.text || a.target || a.name].filter(Boolean).join(" · ");
   const st = !r ? "run" : r.isError ? "err" : "ok";
   const el = h("div", { class: "tool", onclick: () => { open ? S.expanded.delete(key) : S.expanded.add(key); renderChat(); } },
     h("div", { class: "head" }, h("span", { class: "st " + st }), h("b", {}, c.name), h("span", { class: "sum" }, String(sum).replace(/\n/g, " "))),
-    open ? h("div", { class: "body" }, JSON.stringify(a, null, 2) + "\n\n→ " + (r ? r.text : "…")) : null);
+    open ? h("div", { class: "body" }, JSON.stringify(a, null, 2) + "\n\n→ " + (r ? r.text : "…")) : null,
+    r && r.images && r.images.length ? h("div", { class: "shots" }, r.images.map((p) => h("img", { src: "/files?path=" + encodeURIComponent(p), loading: "lazy", onclick: (e) => { e.stopPropagation(); window.open("/files?path=" + encodeURIComponent(p)); } }))) : null);
   return el;
 }
 function composer() {
@@ -702,12 +753,13 @@ function setAgent(el) {
   draw();
   const st = S.st.settings; const off = st.toolGroupsOff || [];
   const prompt = h("textarea", { class: "field", placeholder: "Instruksi tambahan, mis. Leo ada di D:\\leo, dijalanin pakai python leo.py" }); prompt.value = st.agentPrompt || "";
-  const GL = { laptop: "File laptop", shell: "Shell & proses", device: "Clipboard, screenshot, info", ssh: "Server SSH", supabase: "Supabase", web: "HTTP GET" };
+  const GL = { laptop: "File laptop", shell: "Shell & proses", device: "Clipboard, screenshot, info", ssh: "Server SSH", supabase: "Supabase", web: "HTTP GET", browser: "Browser agen (Chrome/Edge)" };
   el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Provider LLM (fallback berurutan)"), h("div", { class: "muted small" }, "Kalau provider #1 error/limit, otomatis pindah ke berikutnya."), box),
     h("div", { class: "card col" }, h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Auto-izinin semua aksi"), h("div", { class: "muted small" }, "Agent ga nanya dulu sebelum hapus file / jalanin perintah. Hati-hati.")), sw(st.autoApprove, (v) => saveSettings({ autoApprove: v }))),
     h("div", { class: "card col" }, h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Sensor data sensitif di proses agent"), h("div", { class: "muted small" }, "API key, password, token, private key & IP disamarin (••••) di langkah tool, status, dan dialog izin.")), sw(st.redact !== false, (v) => saveSettings({ redact: v })))),
       ...S.st.toolGroups.filter((g) => g !== "misc").map((g) => h("div", { class: "row" }, h("div", { style: { flex: 1 } }, GL[g] || g, h("span", { class: "muted small" }, "  " + (S.st.toolCount[g] || 0) + " tools")), sw(!off.includes(g), (v) => saveSettings({ toolGroupsOff: v ? off.filter((x) => x !== g) : off.concat([g]) })))),
       h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Shell default"), seg([["cmd", "cmd"], ["powershell", "PowerShell"]], st.shell, (v) => saveSettings({ shell: v }).then(render)))),
+    browserCard(st),
     h("div", { class: "card col" }, h("b", {}, "Instruksi tambahan"), prompt, h("button", { class: "btn primary", onclick: () => saveSettings({ agentPrompt: prompt.value }).then(() => toast("Kesimpen")) }, "Simpan")));
 }
 function setConn(el) {
@@ -719,15 +771,22 @@ function setConn(el) {
 function setRemote(el) {
   const st = S.st; const tn = st.tunnel;
   const pw = h("input", { class: "field", type: "password", placeholder: st.secrets.webPassword ? "Password tersimpan — isi buat ganti" : "Password buat buka dari HP (wajib)" });
-  const cf = h("input", { class: "field mono", placeholder: "C:\\tools\\cloudflared.exe" }); cf.value = st.settings.cloudflared || "";
+  const cf = h("input", { class: "field mono", placeholder: "Kosongin aja = otomatis (atau isi mis. D:\\tools\\cloudflared.exe)" }); cf.value = st.settings.cloudflared || "";
+  const dl = tn.download || null, dlBusy = dl && !dl.done;
+  const cfRow = h("div", { class: "row" },
+    h("div", { class: "mono small", style: { flex: 1, minWidth: 0, color: tn.exe ? "var(--green)" : "var(--amber)" } },
+      dlBusy ? "Download cloudflared " + (dl.version === "latest" ? "" : dl.version + " ") + dl.pct + "%…" : dl && dl.error ? dl.error : tn.exe ? "✓ " + tn.exe : "⚠ cloudflared belum ada di laptop ini"),
+    h("button", { class: "btn", disabled: !!dlBusy, onclick: () => tryDo(() => api("/api/tunnel/download", {})) }, icon("download"), tn.exe ? "Download ulang" : "Download cloudflared"));
   const tok = h("input", { class: "field", type: "password", placeholder: st.secrets.telegramToken ? "Token bot tersimpan" : "Token bot Telegram (dari @BotFather)" });
   const chat = h("input", { class: "field mono", placeholder: "Chat ID Telegram lu" }); chat.value = st.settings.telegramChat || "";
   el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Buka satsh dari HP"),
     h("div", { class: "muted small" }, "Pakai Cloudflare quick tunnel: dapet link https://….trycloudflare.com yang bisa dibuka dari HP mana aja. Link-nya dikirim ke Telegram tiap kali nyala. Akses dari luar wajib login password."),
-    h("label", { class: "lbl" }, "Password web"), pw, h("label", { class: "lbl" }, "Lokasi cloudflared.exe"), cf,
+    h("label", { class: "lbl" }, "Password web"), pw, h("label", { class: "lbl" }, "Lokasi cloudflared.exe"), cf, cfRow,
     h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Nyalain otomatis pas satsh start"), sw(st.settings.remoteEnabled, (v) => saveSettings({ remoteEnabled: v }))),
     h("button", { class: "btn", onclick: async () => { if (pw.value) { await api("/api/secret", { key: "webPassword", value: pw.value }); } await saveSettings({ cloudflared: cf.value.trim() }); toast("Kesimpen"); render(); } }, icon("save"), "Simpan"),
-    h("div", { class: "row" }, h("span", { class: "dot " + (tn.url ? "on" : tn.running ? "busy" : "") }), h("div", { style: { flex: 1, minWidth: 0 } }, tn.url ? h("a", { href: tn.url, target: "_blank", class: "mono" }, tn.url) : tn.running ? "Nyambungin tunnel…" : tn.error || "Tunnel mati"),
+    h("div", { class: "row" }, h("span", { class: "dot " + (tn.url && tn.ready ? "on" : tn.running ? "busy" : "") }), h("div", { style: { flex: 1, minWidth: 0 } },
+      tn.url ? h("div", {}, h("a", { href: tn.url, target: "_blank", class: "mono" }, tn.url), !tn.ready ? h("div", { class: "muted small" }, "⏳ " + (tn.note || "Nyiapin link…") + " — jangan dibuka dulu") : null, tn.error ? h("div", { class: "small", style: { color: "var(--amber)" } }, tn.error) : null)
+        : tn.running ? "Nyambungin tunnel…" : tn.error || "Tunnel mati"),
       tn.url ? h("button", { class: "btn", onclick: () => { navigator.clipboard.writeText(tn.url); toast("Link ke-copy"); } }, "Copy") : null,
       tn.running ? h("button", { class: "btn danger", onclick: () => tryDo(() => api("/api/tunnel/stop", {})) }, "Matiin") : h("button", { class: "btn primary", onclick: () => tryDo(() => api("/api/tunnel/start", {})) }, "Nyalain"))),
     h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Telegram"), h("div", { class: "muted small" }, "Buat kirim link remote & hasil jadwal ke HP."), tok, chat,
@@ -804,7 +863,7 @@ async function profileMenu() {
 }
 async function editProfile(p) {
   const v = Object.assign({ toolsOff: [] }, p, { toolsOff: (p.toolsOff || []).slice() });
-  const GL = { laptop: "File laptop", shell: "Shell & proses", device: "Clipboard, screenshot, info", ssh: "Server SSH", supabase: "Supabase", web: "HTTP GET" };
+  const GL = { laptop: "File laptop", shell: "Shell & proses", device: "Clipboard, screenshot, info", ssh: "Server SSH", supabase: "Supabase", web: "HTTP GET", browser: "Browser agen (Chrome/Edge)" };
   const res = await modal((close) => {
     const name = h("input", { class: "field", value: v.name });
     const desc = h("input", { class: "field", placeholder: "Buat apa (opsional), mis. ngurus server Payu", value: v.desc || "" });

@@ -286,6 +286,23 @@ description: Beresin folder Download di HP — kelompokin file per jenis (Dokume
 4. Pindahin pakai `phone_move` satu-satu. Jangan timpa file yang udah ada.
 5. Laporin: file > 100MB dan nama yang mirip duplikat (mis. `x (1).pdf`). Jangan hapus apa pun tanpa izin.
 ''',
+  'cek-hp-bekas': r'''---
+name: cek-hp-bekas
+description: Cek kondisi HP — HP bekas yang mau dibeli atau HP sendiri — pakai diagnosa_hp + tes manual di halaman Cek HP + cek harga wajar. Pakai kalau user mau beli HP bekas, nanya kesehatan baterai, atau kondisi HP-nya.
+---
+# Cek HP bekas
+
+1. satsh harus jalan DI HP yang dicek. HP orang: pasang APK satsh sebentar, uninstall lagi abis cek.
+2. Baterai < 50%? Minta cas dulu sampai > 50% — perkiraan kapasitas lebih akurat.
+3. `diagnosa_hp` (HP sendiri yang udah dikasih izin adb: `logs=crash`, lalu `logs=battery`).
+4. Suruh user buka **Pengaturan → Cek HP** dan jalanin semua tes manual (layar, sentuh, multitouch, speaker, mic, getar, 2 kamera, port cas, tombol, sinyal/SIM, sidik jari). Abis itu `diagnosa_hp` lagi biar hasilnya ikut.
+5. Kasih checklist yang ga bisa dites app:
+   - IMEI: ketik `*#06#`, harus sama kayak kardus/nota. Cek di imei.kemenperin.go.id — HP luar yang ga terdaftar sinyalnya diblokir.
+   - Akun Google/Mi/Samsung/iCloud udah logout & HP di-reset depan lu (biar ga kekunci FRP).
+   - Fisik: baterai kembung (layar/tutup belakang keangkat), bekas bongkar (baut lecet, lem layar), bekas kena air, layar ganti (warna/kecerahan beda, touch telat).
+6. Harga: `browser_open` cari "harga <model> bekas" (marketplace, kondisi mirip) → rentang wajar, lalu potongan per temuan (baterai < 80% ≈ biaya ganti baterai; kamera/layar bermasalah ≈ biaya servisnya).
+7. Laporan: vonis (layak / cek lagi / waspada), temuan + bukti dari tool, harga wajar, dan 3–5 pertanyaan buat penjual.
+''',
 };
 
 /// The parts of the brain that belong to one profile: SOUL.md, MEMORY.md, skills/.
@@ -302,20 +319,42 @@ class ProfileBrain {
 
   AgentProfile get meta => brain.profile(id) ?? AgentProfile(id: id, name: id);
 
+  /// Default skills that shipped before `.defaults-seen` existed (old installs already had their chance).
+  static const _oldDefaults = ['cek-server', 'deploy-git', 'rapihin-download'];
+
   Future<void> load({bool seed = true}) async {
     await Directory('${dir.path}/skills').create(recursive: true);
     final soulF = File('${dir.path}/SOUL.md');
-    if (!await soulF.exists() && seed) {
-      await soulF.writeAsString(defaultSoul);
-      for (final e in _defaultSkills.entries) {
-        await Directory('${dir.path}/skills/${e.key}').create(recursive: true);
-        await File('${dir.path}/skills/${e.key}/SKILL.md').writeAsString(e.value);
-      }
-    }
+    final fresh = !await soulF.exists();
+    if (fresh && seed) await soulF.writeAsString(defaultSoul);
+    if (seed && id == 'default') await _seedNewDefaults(fresh);
     soul = await soulF.exists() ? await soulF.readAsString() : defaultSoul;
     final memF = File('${dir.path}/MEMORY.md');
     memory = await memF.exists() ? await memF.readAsString() : '';
     await _loadSkills();
+  }
+
+  /// Writes built-in skills this install hasn't been offered yet (a skill the user deleted stays deleted).
+  Future<void> _seedNewDefaults(bool fresh) async {
+    final f = File('${dir.path}/.defaults-seen');
+    var seen = <String>[];
+    try {
+      seen = (jsonDecode(await f.readAsString()) as List).cast<String>();
+    } catch (_) {
+      if (!fresh) seen = List.of(_oldDefaults);
+    }
+    var changed = false;
+    for (final e in _defaultSkills.entries) {
+      if (seen.contains(e.key)) continue;
+      final sk = File('${dir.path}/skills/${e.key}/SKILL.md');
+      if (!await sk.exists()) {
+        await sk.parent.create(recursive: true);
+        await sk.writeAsString(e.value);
+      }
+      seen.add(e.key);
+      changed = true;
+    }
+    if (changed || !await f.exists()) await f.writeAsString(jsonEncode(seen));
   }
 
   // ---------------------------------------------------------------- soul

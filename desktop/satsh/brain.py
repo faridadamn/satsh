@@ -86,6 +86,27 @@ description: Beresin folder berantakan di laptop (Downloads/Desktop) — kelompo
 4. Pindahin pakai `fs_move` satu-satu, jangan timpa file yang udah ada.
 5. Laporin file > 200MB dan nama mirip duplikat (mis. `x (1).pdf`). Jangan hapus tanpa izin.
 """,
+    "cek-laptop-bekas": r"""---
+name: cek-laptop-bekas
+description: Cek kondisi laptop Windows (bekas yang mau dibeli atau laptop sendiri) — kesehatan baterai asli, kesehatan SSD/HDD, riwayat crash/mati mendadak, spek asli, aktivasi, plus checklist fisik & harga wajar. Pakai kalau user mau beli laptop bekas atau nanya kondisi laptopnya.
+---
+# Cek laptop bekas (Windows 7/10/11)
+
+Semua perintah di bawah read-only. Jalanin pakai shell_run (cmd kecuali ditulis PowerShell). Kalau satsh lagi ga di laptop itu, kasih perintahnya ke user.
+
+1. **Spek & identitas**: `wmic cpu get name,numberofcores,maxclockspeed` · `wmic memorychip get capacity,speed,manufacturer` · `wmic computersystem get manufacturer,model,totalphysicalmemory` · `wmic bios get serialnumber,smbiosbiosversion` · `wmic path win32_videocontroller get name,driverversion`. Cocokin sama klaim penjual.
+2. **Baterai**:
+   - Win8/10/11: `powercfg /batteryreport /output "%TEMP%\battery.html"` → `fs_read` file itu: bandingin DESIGN CAPACITY vs FULL CHARGE CAPACITY (+ CYCLE COUNT). Kesehatan = full ÷ design.
+   - Win7 (atau kalau di atas gagal): `wmic /namespace:\\root\wmi path BatteryStaticData get DesignedCapacity` dan `wmic /namespace:\\root\wmi path BatteryFullChargedCapacity get FullChargedCapacity` (butuh jalanin satsh sebagai admin kalau ditolak).
+   - < 80% = mulai drop, < 60% = siap ganti baterai.
+3. **SSD/HDD**: `wmic diskdrive get model,mediatype,size,status` (status selain "OK", mis. "Pred Fail" = 🔴). Win8+: PowerShell `Get-PhysicalDisk | Select FriendlyName,MediaType,HealthStatus,Size`. Buat detail SMART (jam nyala, bad sector, sisa umur SSD) saranin CrystalDiskInfo.
+4. **Riwayat crash / mati mendadak** (PowerShell): `Get-WinEvent -FilterHashtable @{LogName='System';Id=41,6008,1001} -MaxEvents 30 | Select TimeCreated,Id,Message | Format-List`. Id 41/6008 = mati ga normal, 1001 = BSOD. Banyak dalam 30 hari = 🔴 (cek suhu / RAM / adaptor).
+5. **Windows asli?** `cscript //nologo %windir%\system32\slmgr.vbs /xpr`.
+6. **Suhu**: pas idle & pas buka YouTube, saranin HWMonitor. CPU > 90°C pas ringan = pasta/kipas kotor.
+7. **Checklist fisik buat user**: keyboard semua tombol (buka en.key-test.ru), touchpad & klik, layar (dead pixel: buka gambar warna penuh merah/hijau/biru/putih/hitam), engsel goyang, webcam, speaker, mic, semua port USB/HDMI/audio, charger ori & ga panas berlebih, Wi-Fi/Bluetooth, bekas bongkar (baut), BIOS ga dikunci password.
+8. **Harga**: `browser_open` cari "harga <model> bekas" → rentang wajar, potongan buat tiap temuan (baterai drop ≈ harga baterai baru, SSD bermasalah ≈ SSD baru).
+9. **Laporan**: vonis (layak / cek lagi / waspada), temuan + bukti output, harga wajar, pertanyaan buat penjual.
+""",
 }
 
 _lock = threading.RLock()
@@ -193,15 +214,36 @@ class ProfileBrain:
     def meta(self):
         return self.brain.profile(self.id) or dict(default_profile(), id=self.id, name=self.id)
 
+    OLD_DEFAULTS = ("cek-server", "deploy-git", "rapihin-folder")  # shipped before .defaults-seen existed
+
     def load(self, seed=True):
         os.makedirs(self._p("skills"), exist_ok=True)
-        if not os.path.exists(self._p("SOUL.md")) and seed:
+        fresh = not os.path.exists(self._p("SOUL.md"))
+        if fresh and seed:
             _rw(self._p("SOUL.md"), DEFAULT_SOUL)
-            for name, raw in DEFAULT_SKILLS.items():
-                _rw(self._p("skills", name, "SKILL.md"), raw)
+        if seed and self.id == "default":
+            self._seed_new_defaults(fresh)
         self.soul = _rw(self._p("SOUL.md")) or DEFAULT_SOUL
         self.memory = _rw(self._p("MEMORY.md"))
         self._load_skills()
+
+    def _seed_new_defaults(self, fresh):
+        """Writes built-in skills this install hasn't been offered yet (a skill the user deleted stays deleted)."""
+        p = self._p(".defaults-seen")
+        try:
+            seen = json.loads(_rw(p) or "x")
+        except Exception:
+            seen = [] if fresh else list(self.OLD_DEFAULTS)
+        changed = False
+        for name, raw in DEFAULT_SKILLS.items():
+            if name in seen:
+                continue
+            if not os.path.exists(self._p("skills", name, "SKILL.md")):
+                _rw(self._p("skills", name, "SKILL.md"), raw)
+            seen.append(name)
+            changed = True
+        if changed or not os.path.exists(p):
+            _rw(p, json.dumps(seen))
 
     # ------------------------------------------------------------ soul
     def save_soul(self, text):

@@ -9,6 +9,8 @@ import 'native.dart';
 import 'phone_control.dart';
 import 'agent/agent_zip.dart';
 import 'phone_server.dart';
+import 'diag.dart';
+import 'pages/cek_hp_page.dart' show savedManual;
 import 'pages/agent_page.dart';
 import 'pages/forwards_page.dart';
 import 'pages/hosts_page.dart';
@@ -38,6 +40,7 @@ Future<void> main() async {
   Native.init();
   Native.onControlStopped = AgentController.i.stop;
   PhoneControl.i.configure();
+  DiagSource.manual = savedManual;
   AgentZip.providerIds = () async => Providers.all().map((p) => p.id);
   AgentController.i.approver = (tool, args) async {
     final ctx = navKey.currentContext;

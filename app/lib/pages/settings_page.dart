@@ -16,6 +16,7 @@ import '../phone_control.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'providers_section.dart';
+import 'cek_hp_page.dart';
 
 
 class SettingsPage extends StatefulWidget {
@@ -407,6 +408,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               _h('Tampilan', Icons.palette_rounded),
               _card([
                 _seg('theme', 'dark', [('dark', 'Gelap'), ('light', 'Terang')]),
+              ]),
+              _h('Cek HP', Icons.health_and_safety_rounded),
+              _card([
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.health_and_safety_rounded, color: C.cyan),
+                  title: const Text('Diagnosa HP'),
+                  subtitle: Text('Kesehatan baterai asli, spek dari sistem, tanda root, plus tes layar/sentuh/speaker/mic/kamera. Buat cek HP bekas sebelum beli.',
+                      style: TextStyle(color: C.muted, fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CekHpPage())),
+                ),
               ]),
               _h('Log error', Icons.bug_report_rounded),
               _card([

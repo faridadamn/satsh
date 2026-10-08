@@ -25,6 +25,22 @@ class Native {
     });
   }
 
+  // ------------------------------------------------------- diagnostics
+  /// Battery capacity estimate, real specs, root hints (android/…/DeviceDiag.kt).
+  static Future<Map<String, dynamic>> deviceDiag() async =>
+      Map<String, dynamic>.from(_deep(await _ch.invokeMethod('deviceDiag')) as Map);
+
+  /// "crash" | "battery" | "batterystats" — needs the one-time adb grant, else starts with NEED_GRANT.
+  static Future<String> deviceLogs(String what) async => await _ch.invokeMethod<String>('deviceLogs', {'what': what}) ?? '';
+
+  static Future<bool> vibrate([int ms = 400]) async => await _ch.invokeMethod<bool>('vibrate', {'ms': ms}) ?? false;
+
+  static Object? _deep(Object? v) => v is Map
+      ? {for (final e in v.entries) '${e.key}': _deep(e.value)}
+      : v is List
+          ? [for (final x in v) _deep(x)]
+          : v;
+
   // ------------------------------------------------------------- voice
   /// Opens Android's speech dialog. Null = cancelled / nothing heard.
   static Future<String?> listen({String lang = 'id-ID'}) => _ch.invokeMethod<String>('listen', {'lang': lang});

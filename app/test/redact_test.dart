@@ -14,7 +14,7 @@ void main() {
     expect(r, contains('sk-p••••'));
     expect(Redact.text('AIzaSyA1234567890abcdefghijklmnopqrstu'), isNot(contains('1234567890abc')));
     expect(Redact.text('ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123'), 'ghp_••••');
-    expect(Redact.text('bot 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw8 ok'), '123456789:•••• ok'.replaceFirst('123456789', 'bot 123456789'));
+    expect(Redact.text('bot 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw8 ok'), 'bot 123456789:•••• ok');
   });
 
   test('jwt, bearer, url creds, private key', () {

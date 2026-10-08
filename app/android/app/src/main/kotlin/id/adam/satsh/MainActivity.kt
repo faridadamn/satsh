@@ -72,6 +72,16 @@ class MainActivity : FlutterActivity() {
         ch.setMethodCallHandler { call, result ->
             when (call.method) {
                 "nativeLibDir" -> result.success(applicationInfo.nativeLibraryDir)
+                "deviceDiag" -> bg(result) { DeviceDiag.collect(applicationContext) }
+                "deviceLogs" -> bg(result) { DeviceDiag.logs(applicationContext, call.argument<String>("what") ?: "crash") }
+                "vibrate" -> {
+                    val ms = (call.argument<Int>("ms") ?: 400).toLong()
+                    val v = if (Build.VERSION.SDK_INT >= 31) (getSystemService(android.os.VibratorManager::class.java)).defaultVibrator
+                            else @Suppress("DEPRECATION") (getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator)
+                    if (Build.VERSION.SDK_INT >= 26) v.vibrate(android.os.VibrationEffect.createOneShot(ms, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    else @Suppress("DEPRECATION") v.vibrate(ms)
+                    result.success(v.hasVibrator())
+                }
 
                 // ------------------------------------------------ agent browser
                 "webshot" -> {

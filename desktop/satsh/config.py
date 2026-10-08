@@ -33,7 +33,9 @@ DEFAULTS = {
     "cloudflared": "",
     "telegramChat": "",
     "remoteEnabled": False,
-    "redact": True,  # mask keys/passwords/IPs in what the agent shows while working
+    "redact": True,
+    "browserShow": False,  # show its window (default: headless, lighter)
+    "browserPath": "",  # chrome.exe / msedge.exe if not found automatically  # mask keys/passwords/IPs in what the agent shows while working
 }
 
 

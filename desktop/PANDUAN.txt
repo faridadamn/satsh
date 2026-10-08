@@ -1,4 +1,4 @@
-satsh desktop v2.2 - agent + SSH buat Windows 7 / 10 / 11
+satsh desktop v2.4.5 - agent + SSH buat Windows 7 / 10 / 11
 ==========================================
 
 PASANG (sekali aja)
@@ -17,7 +17,11 @@ PASANG (sekali aja)
    Win7: pakai Chrome 109 / Firefox ESR 115 (IE ga bisa). Win10/11: Chrome / Edge biasa.
 
 UPDATE DARI VERSI LAMA
-Extract versi baru ke folder yang SAMA (timpa), terus klik 2x install.bat lagi.
+1. Cari folder satsh lu: klik kanan shortcut "satsh" di Desktop > Properties > "Start in".
+2. Buka zip, masuk ke folder satsh-desktop di dalamnya, copy ISINYA ke folder itu (timpa semua).
+   Jangan sampai jadi folder dobel (satsh-desktop\satsh-desktop\...).
+3. Klik 2x install.bat di folder itu. Satsh versi lama yang masih nyala otomatis dimatiin & diganti.
+4. Cek nomor versi di pojok kiri atas (tulisan "desktop 2.4.5").
 Data lu aman: semuanya ada di %USERPROFILE%\.satsh, bukan di folder aplikasi.
 
 PERTAMA KALI
@@ -25,6 +29,35 @@ PERTAMA KALI
   API key, model (tombol "Daftar" buat ngambil list model), klik Tes.
   Bisa tambah beberapa provider: kalau #1 error/limit, otomatis pindah ke #2 (fallback).
 - Host: tambah server SSH lu. Pas pertama connect, cocokin fingerprint-nya.
+
+BARU DI 2.4.5
+- Provider yang jawabnya "streaming" (mis. 9router) ga error lagi ("Unexpected character").
+
+BARU DI 2.4.4
+- Skill bawaan baru: cek-laptop-bekas (kesehatan baterai, SSD/HDD, riwayat crash, spek asli,
+  checklist fisik & harga wajar). Bilang aja ke agent: "cek laptop ini, mau gw beli".
+
+BARU DI 2.4.3
+- Update ga ketuker lagi: satsh baru otomatis matiin versi lama yang masih nyala.
+- Nomor versi kelihatan di pojok kiri atas.
+- Remote HP: link baru ditandain siap (dan dikirim ke Telegram) setelah beneran bisa dibuka.
+  Kalau DNS ISP lu yang telat/blokir, ada keterangannya.
+
+BARU DI 2.4.2
+- Browser agen: agent bisa buka web, baca, klik, ngetik, dan LIHAT halaman (screenshot) pakai
+  Chrome/Edge di laptop ini (profil terpisah, jalan di belakang layar, mati sendiri kalau 3 menit
+  nganggur). Pengaturan > Agent > Browser agen. Win7: pakai Chrome 109.
+- Agent bisa LIHAT gambar: file gambar di laptop (image_view) & screenshot layar, bukan cuma metadata.
+- Remote HP: tombol "Download cloudflared" (otomatis pilih versi yang jalan di Win7 = 2023.10.0).
+  Kolom lokasi boleh dikosongin.
+
+BARU DI 2.4
+- Agent preset baru: Cyber Security, DevOps, Code Reviewer (otomatis kepasang).
+- Skill bawaan dikunci buat agent (cuma lu yang bisa ubah) + tombol "Kembaliin default".
+- Push skill ke Hermes: Otak > Skill > "Push ke Hermes" (kirim lewat SSH ke ~/.hermes/skills).
+- Sensor data sensitif: API key/password/token/IP disamarin di proses agent (Pengaturan > Agent).
+- Lebih ringan di laptop lama: chat ga digambar ulang tiap agent ganti status.
+- Keamanan: website lain ga bisa lagi nyuruh-nyuruh satsh lewat browser (CSRF ditutup).
 
 FITUR
 - Preset Web Designer (baru di 2.2): profil agent kedua buat bikin UI web anti-slop
@@ -54,7 +87,7 @@ FITUR
   (mereka di HP), nyatet progress, terus kirim rangkuman ke lu. "Jadwalkan" = rapat tiap 08:00.
 - Host: terminal (xterm), SFTP + editor + preview Markdown/HTML/gambar/video/audio,
   bikin & pasang SSH key otomatis.
-- Remote HP: Pengaturan > Remote HP. Set password web, isi lokasi cloudflared.exe,
+- Remote HP: Pengaturan > Remote HP. Set password web, klik "Download cloudflared" (sekali aja),
   klik Nyalain -> dapet link https://xxx.trycloudflare.com (dikirim ke Telegram kalau diset).
   Akses dari luar laptop wajib login password.
 
@@ -69,6 +102,8 @@ karena jadwal & tunnel jalan di background.)
 Mau lihat log/error: jalanin satsh.bat (ada jendela console), atau buka %USERPROFILE%\.satsh\satsh.log
 
 KALAU ERROR
+- Layar ngeglitch / kedip di laptop lama: update ke 2.4 dulu. Kalau masih, di Chrome buka
+  Settings > System > matiin "Use hardware acceleration when available", restart Chrome.
 - "Python ga ketemu": install Python (lihat PASANG), centang Add to PATH, buka ulang install.bat.
 - Port 8771 kepake: jalanin  .venv\Scripts\python.exe -m satsh --port 8772
 - Library gagal install: pastiin pakai Python 3.8 (bukan 3.9+ unofficial), lalu ulang install.bat.

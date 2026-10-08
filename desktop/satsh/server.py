@@ -20,6 +20,7 @@ from . import llm as llm_mod
 from .agent import agent, bus, cron
 from .brain import CronJob, now_ms
 from .config import HOME, cfg, new_id
+from .browser import browser
 from .remote import telegram, tunnel
 from .ssh import HostKeyUnknown, generate_ed25519, ssh
 from .tools import TOOLS
@@ -70,7 +71,9 @@ def state():
         "profiles": b.profiles,
         "activeProfile": b.active_id,
         "presets": [{"id": i, "name": presets.NAMES.get(i, i)} for i in presets.ids() if not b.profile(i)],
+        "version": __import__("satsh").__version__,
         "tunnel": tunnel.status(),
+        "browser": browser.status(),
         "pending": agent.pending_list(),
         "toolGroups": sorted({t["group"] for t in TOOLS}),
         "toolCount": {g: len([t for t in TOOLS if t["group"] == g]) for g in {t["group"] for t in TOOLS}},
@@ -195,6 +198,8 @@ class Handler(BaseHTTPRequestHandler):
             # Pages served from a host (raw/site) may fetch their own assets with Origin: null.
             if not self.origin_ok(strict=not path.startswith(("/api/sftp/raw", "/api/sftp/site/"))):
                 return self.send_json({"error": "forbidden"}, 403)
+            if path == "/api/version":
+                return self.send_json({"version": __import__("satsh").__version__})
             if path == "/api/login-needed":
                 return self.send_json({"needed": not self.authed()})
             if path.startswith("/api/") or path == "/files":
@@ -493,6 +498,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/skill/delete":
             b.delete_skill(d["name"])
             return self.send_json(ok)
+        if path == "/api/browser/stop":
+            browser.stop()
+            return self.send_json(ok)
         if path == "/api/skill/reset":
             if d.get("all"):
                 return self.send_json({"count": b.active.reset_all_builtins()})
@@ -548,8 +556,11 @@ class Handler(BaseHTTPRequestHandler):
         # ---------------- settings
         if path == "/api/settings":
             vals = {k: v for k, v in d.items() if k in cfg.data and k != "providers"}
+            changed_browser = any(k in vals and vals[k] != cfg.get(k) for k in ("browserShow", "browserPath", "toolGroupsOff"))
             cfg.update(vals)
             redact.enabled = cfg.get("redact", True) is not False
+            if changed_browser:
+                browser.stop()  # next use starts with the new settings
             bus.emit("settings", {})
             return self.send_json(ok)
         if path == "/api/secret":
@@ -660,6 +671,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError("Set password web dulu sebelum buka akses remote")
             tunnel.start(int(cfg.get("port")))
             return self.send_json(ok)
+        if path == "/api/tunnel/download":
+            tunnel.fetch()
+            return self.send_json(ok)
         if path == "/api/tunnel/stop":
             tunnel.stop()
             return self.send_json(ok)
@@ -667,7 +681,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.is_remote:
                 raise ApiError("Matiin cuma bisa dari laptopnya langsung", 403)
             self.send_json(ok)
-            threading.Thread(target=lambda: (time.sleep(0.3), tunnel.stop(), _HTTPD.shutdown()), daemon=True).start()
+            threading.Thread(target=lambda: (time.sleep(0.3), tunnel.stop(), browser.stop(), _HTTPD.shutdown()), daemon=True).start()
             return
         if path == "/api/telegram/test":
             return self.send_json({"ok": telegram("👋 Tes dari satsh desktop")})
@@ -688,7 +702,16 @@ def _local_reader(path, off, ln):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
+    # Windows' SO_REUSEADDR lets a SECOND process bind the same port (requests then hit either one at
+    # random — an old satsh would keep answering after an update). Bind exclusively there instead.
+    allow_reuse_address = os.name != "nt"
+
+    def server_bind(self):
+        import socket
+
+        if os.name == "nt" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 def open_ui(url):
@@ -711,6 +734,46 @@ def open_ui(url):
     webbrowser.open(url)
 
 
+def running_version(port):
+    """Version of the satsh already on [port]: str, "" for an old one without /api/version, None if it's not satsh."""
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/version" % port, timeout=3) as r:
+            return json.loads(r.read().decode("utf-8")).get("version", "")
+    except urllib.error.HTTPError as e:
+        return "" if e.code == 404 else None
+    except Exception:
+        return None
+
+
+def take_over(port):
+    """After an update the OLD satsh may still hold the port (install.bat starts the new one while
+    the old keeps running). Ask it to quit and take its place. Returns the new server or None."""
+    import urllib.request
+
+    mine = __import__("satsh").__version__
+    other = running_version(port)
+    if other is None or other == mine:
+        return None
+    print("satsh %s masih jalan — gantiin pakai %s…" % (other or "versi lama", mine))
+    try:
+        origin = "http://127.0.0.1:%d" % port
+        req = urllib.request.Request(origin + "/api/shutdown", data=b"{}", method="POST",
+                                     headers={"Content-Type": "application/json", "Origin": origin})
+        urllib.request.urlopen(req, timeout=5).read()
+    except Exception:  # noqa
+        pass
+    for _ in range(40):
+        time.sleep(0.25)
+        try:
+            return Server(("127.0.0.1", port), Handler)
+        except OSError:
+            continue
+    return None
+
+
 def serve(port=None, open_browser=True):
     port = int(port or cfg.get("port", 8771))
     redact.enabled = cfg.get("redact", True) is not False
@@ -722,11 +785,13 @@ def serve(port=None, open_browser=True):
     try:
         httpd = Server(("127.0.0.1", port), Handler)
     except OSError:
-        # already running → just open the UI
-        print("satsh udah jalan di %s" % url)
-        if open_browser:
-            open_ui(url)
-        return
+        httpd = take_over(port)
+        if httpd is None:
+            # the same version is already running → just open its UI
+            print("satsh udah jalan di %s" % url)
+            if open_browser:
+                open_ui(url)
+            return
     global _HTTPD
     _HTTPD = httpd
     cron.on_done = lambda title, body: (bus.emit("toast", {"title": title, "body": body}), telegram("%s\n%s" % (title, body)) if cfg.get("telegramChat") else None)
@@ -742,3 +807,4 @@ def serve(port=None, open_browser=True):
         pass
     finally:
         tunnel.stop()
+        browser.stop()

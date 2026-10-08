@@ -229,6 +229,7 @@ class OpenAiCompat implements LlmProvider {
             body: jsonEncode({
               'model': model,
               'messages': msgs,
+              'stream': false, // some routers (9router…) stream unless told not to
               if (tools.isNotEmpty)
                 'tools': [
                   for (final t in tools)
@@ -240,7 +241,15 @@ class OpenAiCompat implements LlmProvider {
             }))
         .timeout(const Duration(seconds: 180));
     if (r.statusCode != 200) throw LlmError(_errBody(r));
-    final j = jsonDecode(utf8.decode(r.bodyBytes));
+    final Map<String, dynamic> j;
+    try {
+      j = decodeCompletion(utf8.decode(r.bodyBytes, allowMalformed: true));
+    } on FormatException catch (e) {
+      final b = utf8.decode(r.bodyBytes, allowMalformed: true).trim();
+      throw LlmError('Respon provider bukan JSON (${e.message}): ${b.length > 200 ? '${b.substring(0, 200)}…' : b}');
+    }
+    final err = j['error'];
+    if (err != null) throw LlmError(err is Map ? '${err['message'] ?? err}' : '$err');
     final choice = (j['choices'] as List?)?.firstOrNull;
     if (choice == null) throw LlmError('Respon kosong dari provider');
     final msg = choice['message'] ?? {};
@@ -367,4 +376,78 @@ class Gemini implements LlmProvider {
     }
     return LlmReply(text.toString(), calls, raw: parts.map((e) => Map<String, dynamic>.from(e)).toList());
   }
+}
+
+/// Turns an OpenAI-style SSE stream ("data: {chunk}" lines) into one normal chat.completion map.
+/// Some routers (9router, proxies in front of Gemini/Antigravity) stream even when we didn't ask.
+Map<String, dynamic> completionFromSse(String text) {
+  final content = StringBuffer();
+  final calls = <int, Map<String, dynamic>>{};
+  Object? err;
+  String? finish, model;
+  for (var line in const LineSplitter().convert(text)) {
+    line = line.trim();
+    if (!line.startsWith('data:')) continue;
+    final data = line.substring(5).trim();
+    if (data.isEmpty || data == '[DONE]') continue;
+    Object? j;
+    try {
+      j = jsonDecode(data);
+    } catch (_) {
+      continue;
+    }
+    if (j is! Map) continue;
+    if (j['error'] != null) {
+      err = j['error'];
+      continue;
+    }
+    model = (j['model'] as String?) ?? model;
+    for (final ch in (j['choices'] as List? ?? const [])) {
+      if (ch is! Map) continue;
+      final d = (ch['delta'] ?? ch['message'] ?? const {}) as Map;
+      if (d['content'] is String) content.write(d['content']);
+      final tcs = d['tool_calls'] as List? ?? const [];
+      for (var k = 0; k < tcs.length; k++) {
+        final tc = tcs[k] as Map;
+        final i = (tc['index'] as num?)?.toInt() ?? k;
+        final c = calls.putIfAbsent(i, () => {'id': null, 'type': 'function', 'function': {'name': '', 'arguments': ''}});
+        final f = c['function'] as Map<String, dynamic>;
+        if (tc['id'] != null) c['id'] = tc['id'];
+        final fn = (tc['function'] ?? const {}) as Map;
+        final name = fn['name'];
+        if (name is String && name.isNotEmpty && !(f['name'] as String).endsWith(name)) f['name'] = '${f['name']}$name';
+        final a = fn['arguments'];
+        if (a is String) {
+          f['arguments'] = '${f['arguments']}$a';
+        } else if (a is Map) {
+          f['arguments'] = jsonEncode(a);
+        }
+      }
+      if (ch['finish_reason'] != null) finish = '${ch['finish_reason']}';
+    }
+  }
+  if (err != null && content.isEmpty && calls.isEmpty) return {'error': err};
+  final keys = calls.keys.toList()..sort();
+  return {
+    'object': 'chat.completion',
+    'model': model,
+    'choices': [
+      {
+        'index': 0,
+        'message': {
+          'role': 'assistant',
+          'content': content.toString(),
+          if (calls.isNotEmpty) 'tool_calls': [for (final k in keys) calls[k]],
+        },
+        'finish_reason': finish,
+      }
+    ],
+  };
+}
+
+/// JSON or SSE body → completion map.
+Map<String, dynamic> decodeCompletion(String body) {
+  final t = body.trimLeft();
+  if (t.startsWith('data:') || t.startsWith('event:') || t.startsWith(':')) return completionFromSse(t);
+  return Map<String, dynamic>.from(jsonDecode(t) as Map);
 }

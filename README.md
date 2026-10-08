@@ -2,7 +2,7 @@
 
 SSH client Android yang "gw banget": terminal, SFTP, tunnel, agent AI di dalam aplikasi, Mode Server (HP lain bisa SSH ke HP ini), plus versi desktop buat Windows 7 / 10 / 11.
 
-Versi app: **2.4.0** · desktop **2.4.0**
+Versi app: **2.5.1** · desktop **2.4.5**
 
 ## Isi repo
 
@@ -11,7 +11,7 @@ Versi app: **2.4.0** · desktop **2.4.0**
 | `app/` | Aplikasi Android satsh | Flutter / Dart |
 | `satshd/` | SSH server mini yang ditanam di APK buat **Mode Server** | Go |
 | `markas/` | **Markas**: workspace bareng Adam & semua agent (CLI kecil + SQLite di server, skill Hermes) | Python 3.6+ / sh |
-| `desktop/` | satsh desktop buat Windows 7/10/11 (agent + SSH + remote dari HP) | Python 3.8–3.14 |
+| `desktop/` | satsh desktop buat Windows 7/10/11 (agent + SSH + browser agen + remote dari HP) | Python 3.8–3.14 |
 
 ## Fitur app
 
@@ -37,6 +37,7 @@ Versi app: **2.4.0** · desktop **2.4.0**
   - Tool agent `markas` (brief / target / log / say / inbox) dan `tanya_agent` (Hermes lewat `hermes -z` di server, agy lewat agent eksternal, Muse lewat kontrol HP di aplikasinya)
   - **Rapat**: satsh nanya PIC tiap target, nyatet hasilnya, kirim rangkuman ke lu; bisa dijadwal harian
   - Hermes dapet skill `markas` otomatis (`~/.hermes/skills/markas/SKILL.md`), jadi dari CLI / Telegram dia bisa lapor sendiri
+- **Cek HP / diagnosa** (Pengaturan → Cek HP, tool `diagnosa_hp`): perkiraan kapasitas baterai asli vs desain, cycle, spek asli dari sistem, tanda root / bootloader unlock, tes layar/sentuh/multitouch/speaker/mic/getar/kamera/port cas → vonis layak / cek lagi / waspada. Log sistem & `dumpsys battery` setelah izin adb sekali (`adb shell pm grant id.adam.satsh android.permission.READ_LOGS` + `…DUMP`). Desktop: skill `cek-laptop-bekas`.
 - **Log error** dengan stack trace + tombol kirim laporan
 - Jawaban agent: tombol salin per blok kode & kutipan, plus "Salin semua"
 - Mata & tangan: screenshot browser, lihat layar HP, kontrol app lain (Aksesibilitas), kamera, suara

@@ -69,7 +69,6 @@ def main():
         srv.terminate()
         srv.wait(5)
 
-    # CSP header on host-served files
     sys.path.insert(0, root)
     os.environ["SATSH_HOME"] = home
     from satsh import server  # noqa

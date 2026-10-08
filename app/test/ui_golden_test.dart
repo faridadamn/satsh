@@ -24,6 +24,9 @@ import 'package:satsh/browser.dart';
 import 'browser_test.dart' show FakeBackend;
 import 'package:satsh/models.dart';
 import 'package:satsh/pages/forwards_page.dart';
+import 'package:satsh/diag.dart';
+import 'package:satsh/pages/cek_hp_page.dart';
+import 'diag_test.dart' show phone;
 import 'package:satsh/pages/host_edit_page.dart';
 import 'package:satsh/pages/snippets_page.dart';
 import 'package:satsh/pages/terminal_page.dart';
@@ -218,6 +221,15 @@ void main() {
 
   testWidgets('brain memory', (t) => shot(t, const BrainPage(initialTab: 1), 'brain_memory'));
   testWidgets('brain skills', (t) => shot(t, const BrainPage(initialTab: 2), 'brain_skills'));
+  testWidgets('cek hp', (t) async {
+    DiagSource.read = () async => phone(health: 76);
+    saveManual({'layar': true, 'sentuh': true, 'speaker': true, 'mic': false});
+    await shot(t, const CekHpPage(), 'cek_hp', after: () async {
+      await t.tap(find.text('Jalanin diagnosa otomatis'));
+      await t.pump(const Duration(seconds: 1));
+    });
+    saveManual({});
+  });
   testWidgets('brain jobs', (t) => shot(t, const BrainPage(initialTab: 3), 'brain_jobs'));
 }
 
