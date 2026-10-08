@@ -1,5 +1,6 @@
 // OpenAI-compatible routers (9router…) that answer with an SSE stream even when we didn't ask.
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -73,5 +74,96 @@ void main() {
       ]
     })).chat('sys', hist, tools);
     expect(r.calls.single.args, {'command': 'ls'});
+  });
+
+  group('9router passes Gemini/Antigravity bodies through when there are no candidates', () {
+    late List<Map<String, dynamic>> bodies;
+    OpenAiCompat seq(List<String> replies) {
+      bodies = [];
+      var i = 0;
+      return OpenAiCompat(
+        baseUrl: 'https://9router.example/v1',
+        apiKey: 'k',
+        model: 'ag/gemini-3.8-flash-high',
+        client: MockClient((req) async {
+          bodies.add(jsonDecode(req.body) as Map<String, dynamic>);
+          return http.Response(replies[i++ < replies.length - 1 ? i - 1 : replies.length - 1], 200,
+              headers: {'content-type': 'application/json'});
+        }),
+      );
+    }
+
+    late String img;
+    setUpAll(() {
+      img = '${Directory.systemTemp.createTempSync('satshimg').path}/a.jpg';
+      File(img).writeAsBytesSync([0xff, 0xd8, 0xff, 0xd9]);
+    });
+    List<Msg> withPic() => [Msg(role: 'user', text: 'ini error apa?', images: [img])];
+    bool hasImage(Map<String, dynamic> b) => jsonEncode(b).contains('image_url');
+
+    test('blocked prompt → readable reason, then answered without the picture', () async {
+      final p = seq([
+        '{"response":{"promptFeedback":{"blockReason":"OTHER"},"usageMetadata":{"promptTokenCount":9}}}',
+        '{"choices":[{"message":{"content":"gambarnya ga bisa diproses model ini"},"finish_reason":"stop"}]}',
+      ]);
+      final r = await p.chat('sys', withPic(), tools);
+      expect(r.text, contains('ga bisa diproses'));
+      expect(bodies, hasLength(2));
+      expect(hasImage(bodies.first), isTrue);
+      expect(hasImage(bodies.last), isFalse, reason: 'refused picture is never resent');
+      expect(jsonEncode(bodies.last), contains('provider nolak gambarnya'));
+      expect(jsonEncode(bodies.last), contains('OTHER'));
+    });
+
+    test('no picture: block is a clear error, not "Respon kosong"', () async {
+      final p = seq(['{"response":{"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"}}}']);
+      expect(() => p.chat('sys', hist, tools),
+          throwsA(isA<LlmBlocked>().having((e) => e.message, 'message', contains('PROHIBITED_CONTENT'))));
+    });
+
+    test('raw Gemini candidates are read (text + function calls, thoughts skipped)', () async {
+      final p = seq([
+        jsonEncode({
+          'response': {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'mikir…', 'thought': true},
+                    {'text': 'Cek dulu'},
+                    {'functionCall': {'name': 'shell_run', 'args': {'command': 'uptime'}}},
+                  ]
+                },
+                'finishReason': 'STOP'
+              }
+            ]
+          }
+        })
+      ]);
+      final r = await p.chat('sys', hist, tools);
+      expect(r.text, 'Cek dulu');
+      expect(r.calls.single.args, {'command': 'uptime'});
+    });
+
+    test('candidate stopped by SAFETY with nothing in it → blocked', () async {
+      final p = seq(['{"candidates":[{"finishReason":"IMAGE_SAFETY"}]}']);
+      expect(() => p.chat('sys', hist, tools), throwsA(isA<LlmBlocked>()));
+    });
+
+    test('OpenAI content_filter with empty message → blocked', () async {
+      final p = seq(['{"choices":[{"message":{"content":""},"finish_reason":"content_filter"}]}']);
+      expect(() => p.chat('sys', hist, tools), throwsA(isA<LlmBlocked>()));
+    });
+
+    test('unknown empty body shows what came back', () async {
+      final p = seq(['{"weird":true}']);
+      expect(() => p.chat('sys', hist, tools),
+          throwsA(isA<LlmError>().having((e) => e.message, 'message', contains('"weird":true'))));
+    });
+
+    test('plain stop with empty text is still fine', () async {
+      final r = await seq(['{"choices":[{"message":{"content":""},"finish_reason":"stop"}]}']).chat('sys', hist, tools);
+      expect(r.text, '');
+    });
   });
 }

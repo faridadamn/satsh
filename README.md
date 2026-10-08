@@ -2,7 +2,7 @@
 
 SSH client Android yang "gw banget": terminal, SFTP, tunnel, agent AI di dalam aplikasi, Mode Server (HP lain bisa SSH ke HP ini), plus versi desktop buat Windows 7 / 10 / 11.
 
-Versi app: **2.5.1** · desktop **2.4.5**
+Versi app: **2.5.2** · desktop **2.4.6**
 
 ## Isi repo
 

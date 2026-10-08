@@ -156,7 +156,14 @@ def redaction():
     blob = json.dumps(v["messages"][1:3])
     ok("rahasia-vps-123" not in blob and "hunter22" not in blob and "abcdefghijklmnop" not in blob, "tool args, results and narration masked")
     ok(v["messages"][1]["calls"][0]["args"]["password"] == redact.MASK and v["messages"][1]["calls"][0]["args"]["host"] == "vps", "args deep-masked")
-    ok(v["messages"][0]["text"] == s["messages"][0]["text"] and v["messages"][3]["text"] == s["messages"][3]["text"], "user text & final answer untouched")
+    ok(v["messages"][0]["text"] == s["messages"][0]["text"], "user's own text untouched")
+    ok("abcdefghijklmnop" not in v["messages"][3]["text"] and v["messages"][3]["text"].startswith("Jawaban akhir"), "final answer masked too (DevOps report)")
+    s2 = {"id": "y", "todos": [{"content": "cek 103.45.67.89", "status": "pending"}], "messages": [
+        {"role": "assistant", "text": "Beres, passwordnya rahasia99 dan IP 103.45.67.89"},
+        {"role": "event", "text": "⚠️ HTTP 401: key sk-proj-ABCDEFGHIJKLMNOPQRSTUV salah"}]}
+    v2 = redact.session_view(s2)
+    blob2 = json.dumps(v2)
+    ok("rahasia99" not in blob2 and "103.45.67.89" not in blob2 and "ABCDEFGHIJKLMNOP" not in blob2, "final answer, events and plan masked")
     ok(v["status"] == "Jalanin di 103.•.•.89…", "status masked")
     ok(s["messages"][1]["calls"][0]["args"]["password"] == "x", "original session not modified")
     redact.enabled = False

@@ -41,6 +41,16 @@ void main() {
     expect(Redact.text('versi 2.3.0 aman'), 'versi 2.3.0 aman');
   });
 
+  test('natural language passwords (Indonesian), without masking normal sentences', () {
+    expect(Redact.text('passwordnya rahasia123'), 'passwordnya ••••');
+    expect(Redact.text('password vps adalah Hunter22!'), 'password vps adalah ••••');
+    expect(Redact.text('kata sandi: abcd1234'), 'kata sandi: ••••');
+    expect(Redact.text('pin wifi: 12345678'), 'pin wifi: ••••');
+    expect(Redact.text('sandi wifi nya bebas123'), 'sandi wifi nya ••••');
+    expect(Redact.text('password server gagal'), 'password server gagal');
+    expect(Redact.text('passwordnya udah diganti'), 'passwordnya udah diganti');
+  });
+
   test('known secrets are masked exactly; args deep-masked; switch off', () {
     Redact.learn(['rahasia-vps-123', null, 'abc', 'server']);
     expect(Redact.text('cek server dulu'), 'cek server dulu'); // plain short word isn't learned

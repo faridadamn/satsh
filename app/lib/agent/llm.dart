@@ -104,6 +104,11 @@ class LlmError implements Exception {
   String toString() => message;
 }
 
+/// The provider answered but refused (safety filter / blockReason / content_filter).
+class LlmBlocked extends LlmError {
+  LlmBlocked(super.message);
+}
+
 /// Walks [history] and calls [flush] with the images collected from a run of
 /// consecutive tool results, right after that run (providers won't take
 /// images inside a tool result, so they go in a user turn that follows).
@@ -159,12 +164,14 @@ class OpenAiCompat implements LlmProvider {
     } on LlmError catch (e) {
       // Text-only model? Retry once without the pictures.
       final hadImages = history.any((m) => m.images.isNotEmpty);
-      if (!hadImages || !RegExp(r'image|vision|multimodal|content.*(array|list|type)|unsupported', caseSensitive: false).hasMatch(e.message)) rethrow;
-      return _send(_messages(system, history, withImages: false), tools);
+      final blocked = e is LlmBlocked;
+      if (!hadImages || !(blocked || RegExp(r'image|vision|multimodal|content.*(array|list|type)|unsupported|respon kosong', caseSensitive: false).hasMatch(e.message))) rethrow;
+      // Refused because of the picture → answer without it (the model is told why), never resend it.
+      return _send(_messages(system, history, withImages: false, refused: blocked ? e.message : null), tools);
     }
   }
 
-  List<Map<String, dynamic>> _messages(String system, List<Msg> history, {required bool withImages}) {
+  List<Map<String, dynamic>> _messages(String system, List<Msg> history, {required bool withImages, String? refused}) {
     final msgs = <Map<String, dynamic>>[
       {'role': 'system', 'content': system},
     ];
@@ -179,7 +186,9 @@ class OpenAiCompat implements LlmProvider {
                     ? m.text
                     : withImages
                         ? '${m.text}\n[gambarnya udah kehapus dari HP]'
-                        : '${m.text}\n[user ngirim ${m.images.length} gambar, tapi model ini ga bisa lihat gambar]')
+                        : refused != null
+                            ? '${m.text}\n[user ngirim ${m.images.length} gambar, tapi provider nolak gambarnya ($refused). Bilang ke user gambarnya ga bisa diproses model ini.]'
+                            : '${m.text}\n[user ngirim ${m.images.length} gambar, tapi model ini ga bisa lihat gambar]')
                 : [
                     {'type': 'text', 'text': m.text.isEmpty ? '(gambar)' : m.text},
                     for (final b in imgs) {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,$b'}},
@@ -210,7 +219,9 @@ class OpenAiCompat implements LlmProvider {
                 {'type': 'text', 'text': imageLabel(imgs)},
                 for (final (_, b) in imgs) {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,$b'}},
               ]
-            : '[Tool ngasih screenshot, tapi model ini ga bisa lihat gambar. Pakai browser_read buat teksnya.]',
+            : refused != null
+                ? '[Tool ngasih gambar, tapi provider nolak gambarnya ($refused). Lanjut tanpa gambar.]'
+                : '[Tool ngasih screenshot, tapi model ini ga bisa lihat gambar. Pakai browser_read buat teksnya.]',
       });
     });
     return msgs;
@@ -249,9 +260,8 @@ class OpenAiCompat implements LlmProvider {
       throw LlmError('Respon provider bukan JSON (${e.message}): ${b.length > 200 ? '${b.substring(0, 200)}…' : b}');
     }
     final err = j['error'];
-    if (err != null) throw LlmError(err is Map ? '${err['message'] ?? err}' : '$err');
-    final choice = (j['choices'] as List?)?.firstOrNull;
-    if (choice == null) throw LlmError('Respon kosong dari provider');
+    if (err != null && (j['choices'] as List?)?.isNotEmpty != true) throw LlmError(err is Map ? '${err['message'] ?? err}' : '$err');
+    final choice = normalizeCompletion(j);
     final msg = choice['message'] ?? {};
     final calls = <ToolCall>[];
     for (final tc in (msg['tool_calls'] as List? ?? [])) {
@@ -357,7 +367,7 @@ class Gemini implements LlmProvider {
     final cand = (j['candidates'] as List?)?.firstOrNull;
     if (cand == null) {
       final block = j['promptFeedback']?['blockReason'];
-      throw LlmError(block != null ? 'Diblok Gemini: $block' : 'Respon kosong dari Gemini');
+      throw block != null ? LlmBlocked('Diblok Gemini: $block') : LlmError('Respon kosong dari Gemini');
     }
     final parts = (cand['content']?['parts'] as List? ?? []).cast<Map>();
     final text = StringBuffer();
@@ -450,4 +460,52 @@ Map<String, dynamic> decodeCompletion(String body) {
   final t = body.trimLeft();
   if (t.startsWith('data:') || t.startsWith('event:') || t.startsWith(':')) return completionFromSse(t);
   return Map<String, dynamic>.from(jsonDecode(t) as Map);
+}
+
+const _okFinish = {'stop', 'tool_calls', 'length', 'function_call', 'end_turn', 'finish_reason_unspecified', 'null', ''};
+
+/// The first choice of an OpenAI-style completion. Routers like 9router pass a
+/// Gemini/Antigravity body through untouched when it has no candidates (blocked
+/// prompt), so that shape is read too; a refusal becomes [LlmBlocked] with the
+/// provider's reason instead of a bare "empty response".
+Map<String, dynamic> normalizeCompletion(Map<String, dynamic> j) {
+  final choices = j['choices'];
+  if (choices is List && choices.isNotEmpty && choices.first is Map) {
+    final c = Map<String, dynamic>.from(choices.first as Map);
+    final m = (c['message'] ?? const {}) as Map;
+    final empty = (m['content'] is! String || (m['content'] as String).trim().isEmpty) && (m['tool_calls'] as List?)?.isNotEmpty != true;
+    final fin = '${c['finish_reason'] ?? ''}'.toLowerCase();
+    if (empty && !_okFinish.contains(fin)) throw LlmBlocked('Ditolak filter provider ($fin)');
+    return c;
+  }
+  final r = j['response'] is Map ? Map<String, dynamic>.from(j['response']) : j;
+  final cands = r['candidates'];
+  if (cands is List && cands.isNotEmpty && cands.first is Map) {
+    final cand = cands.first as Map;
+    final text = StringBuffer();
+    final calls = <Map<String, dynamic>>[];
+    for (final p in (cand['content']?['parts'] as List? ?? const [])) {
+      if (p is! Map || p['thought'] == true) continue;
+      if (p['text'] is String) text.write(p['text']);
+      final fc = p['functionCall'];
+      if (fc is Map) {
+        calls.add({
+          'id': 'call_${fc['name']}_${calls.length}',
+          'type': 'function',
+          'function': {'name': fc['name'], 'arguments': jsonEncode(fc['args'] ?? {})},
+        });
+      }
+    }
+    final fin = '${cand['finishReason'] ?? ''}'.toLowerCase();
+    if (text.isEmpty && calls.isEmpty && !_okFinish.contains(fin)) throw LlmBlocked('Ditolak filter provider ($fin)');
+    return {
+      'index': 0,
+      'message': {'role': 'assistant', 'content': text.toString(), if (calls.isNotEmpty) 'tool_calls': calls},
+      'finish_reason': calls.isNotEmpty ? 'tool_calls' : fin,
+    };
+  }
+  final block = (r['promptFeedback'] is Map) ? r['promptFeedback']['blockReason'] : null;
+  if (block != null) throw LlmBlocked('Ditolak filter provider ($block)');
+  final b = jsonEncode(j);
+  throw LlmError('Respon kosong dari provider: ${b.length > 200 ? '${b.substring(0, 200)}…' : b}');
 }

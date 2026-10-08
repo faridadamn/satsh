@@ -58,6 +58,11 @@ class Redact {
       (m) => '${m[1]}$mask'
     ),
     (RegExp(r'''(\bsshpass\s+-p\s*)(["']?)[^\s"']+\2'''), (m) => '${m[1]}$mask'),
+    // Natural language: "password-nya adalah X", "kata sandi: X", "passwordnya X"
+    (
+      RegExp(r'''(\b(?:password|passwd|kata\s*sandi|sandi|pw|pin|passcode)(?:\s+(?:wifi|root|db|database|ssh|vps|server|admin|email|router|hp|laptop|user))?(?:(?:[\s-]?nya)?\s*[:=]\s*|(?:[\s-]?nya)?\s+(?:adalah|is|yaitu)\s+|[\s-]?nya\s+))(["'`]?)(?!••••)([^\s"'`,;]{4,})\2''', caseSensitive: false),
+      (m) => RegExp(r'^(yang|untuk|buat|baru|lama|default|salah|benar|aman|kuat|lemah|udah|sudah|belum|masih|harus|bisa|ganti|diganti|apa|gimana|ini|itu)$', caseSensitive: false).hasMatch(m[3]!) ? m[0]! : '${m[1]}$mask'
+    ),
     (RegExp(r'''(\b(?:mysql|mariadb|mysqldump)\b[^\n|;]*?\s-p)(?!\s)(["']?)[^\s"']+\2'''), (m) => '${m[1]}$mask'),
     // ?token=… &api_key=… in query strings
     (

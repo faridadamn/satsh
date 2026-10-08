@@ -52,6 +52,9 @@ _RULES = [
      _assign),
     (re.compile(r"""(--(?:password|passwd|pass|token|api-key|apikey|secret)[= ]\s*)(["']?)[^\s"']+\2""", re.I), lambda m: m.group(1) + MASK),
     (re.compile(r"""(\bsshpass\s+-p\s*)(["']?)[^\s"']+\2"""), lambda m: m.group(1) + MASK),
+    # natural language: "password-nya adalah X", "kata sandi: X", "passwordnya X"
+    (re.compile(r"""(\b(?:password|passwd|kata\s*sandi|sandi|pw|pin|passcode)(?:\s+(?:wifi|root|db|database|ssh|vps|server|admin|email|router|hp|laptop|user))?(?:(?:[\s-]?nya)?\s*[:=]\s*|(?:[\s-]?nya)?\s+(?:adalah|is|yaitu)\s+|[\s-]?nya\s+))(["'`]?)(?!••••)([^\s"'`,;]{4,})\2""", re.I),
+     lambda m: m.group(0) if re.match(r"^(yang|untuk|buat|baru|lama|default|salah|benar|aman|kuat|lemah|udah|sudah|belum|masih|harus|bisa|ganti|diganti|apa|gimana|ini|itu)$", m.group(3), re.I) else m.group(1) + MASK),
     (re.compile(r"""(\b(?:mysql|mariadb|mysqldump)\b[^\n|;]*?\s-p)(?!\s)(["']?)[^\s"']+\2"""), lambda m: m.group(1) + MASK),
     (re.compile(r"([?&](?:token|access_token|api_key|apikey|key|secret|sig|signature|password)=)[^&\s#\"]+", re.I), lambda m: m.group(1) + MASK),
     (re.compile(r"(?<![\d.])(%s\.)(?:%s\.){2}(%s)(?![\d.]*\d)" % (_OCT, _OCT, _OCT)), _ip_fix),
@@ -86,7 +89,7 @@ def value(v, key=""):
 
 
 def session_view(s):
-    """Copy of a session for the UI: tool args/results and narration between tool calls masked."""
+    """Copy of a session for the UI: tool args/results, narration, final answers and plan items masked."""
     if not enabled:
         return s
     out = dict(s)
@@ -95,12 +98,12 @@ def session_view(s):
         m = dict(m)
         if m.get("calls"):
             m["calls"] = [dict(c, args=value(copy.deepcopy(c.get("args") or {}))) for c in m["calls"]]
-            if m.get("text"):
-                m["text"] = text(m["text"])
-        elif m.get("role") == "tool" and m.get("text"):
+        if m.get("role") in ("assistant", "tool", "event") and m.get("text"):
             m["text"] = text(m["text"])
         msgs.append(m)
     out["messages"] = msgs
+    if out.get("todos"):
+        out["todos"] = [dict(t, content=text(str(t.get("content", "")))) for t in out["todos"]]
     if out.get("status"):
         out["status"] = text(out["status"])
     return out

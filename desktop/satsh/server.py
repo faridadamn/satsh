@@ -794,7 +794,14 @@ def serve(port=None, open_browser=True):
             return
     global _HTTPD
     _HTTPD = httpd
-    cron.on_done = lambda title, body: (bus.emit("toast", {"title": title, "body": body}), telegram("%s\n%s" % (title, body)) if cfg.get("telegramChat") else None)
+
+    def _cron_done(title, body):
+        body = redact.text(body)  # notifications leave the app: never leak keys/IPs
+        bus.emit("toast", {"title": title, "body": body})
+        if cfg.get("telegramChat"):
+            telegram("%s\n%s" % (title, body))
+
+    cron.on_done = _cron_done
     cron.start()
     if cfg.get("remoteEnabled") and cfg.has_secret("webPassword"):
         tunnel.start(port)

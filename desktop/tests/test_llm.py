@@ -24,7 +24,8 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         SENT["body"] = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
-        b = REPLY["body"].encode()
+        SENT.setdefault("all", []).append(SENT["body"])
+        b = (REPLY["queue"].pop(0) if REPLY.get("queue") else REPLY["body"]).encode()
         self.send_response(200)
         self.send_header("Content-Type", REPLY["ctype"])
         self.send_header("Content-Length", str(len(b)))
@@ -82,6 +83,40 @@ def main():
 
     REPLY["body"], REPLY["ctype"] = json.dumps({"choices": [{"message": {"content": "biasa"}}]}), "application/json"
     ok(p.chat("sys", hist, tools).text == "biasa", "plain JSON still works")
+
+    # 9router passes a Gemini/Antigravity body through when it has no candidates
+    img = os.path.join(tempfile.mkdtemp(), "a.jpg")
+    with open(img, "wb") as f:
+        f.write(b"\xff\xd8\xff\xd9")
+    pic = [{"role": "user", "text": "cek layar"},
+           {"role": "assistant", "text": "", "calls": [{"id": "c1", "name": "screenshot", "args": {}}]},
+           {"role": "tool", "callId": "c1", "name": "screenshot", "text": "ok", "images": [img]}]
+    SENT["all"] = []
+    REPLY["queue"] = [json.dumps({"response": {"promptFeedback": {"blockReason": "OTHER"}}}),
+                      json.dumps({"choices": [{"message": {"content": "gambarnya ga bisa diproses"}, "finish_reason": "stop"}]})]
+    r = p.chat("sys", pic, tools)
+    ok(r.text == "gambarnya ga bisa diproses" and len(SENT["all"]) == 2, "blocked picture → answered without it")
+    ok("image_url" in json.dumps(SENT["all"][0]) and "image_url" not in json.dumps(SENT["all"][1]), "refused picture never resent")
+    ok("OTHER" in json.dumps(SENT["all"][1]), "model told why")
+    for body, want in ((json.dumps({"response": {"promptFeedback": {"blockReason": "PROHIBITED_CONTENT"}}}), "PROHIBITED_CONTENT"),
+                       (json.dumps({"candidates": [{"finishReason": "IMAGE_SAFETY"}]}), "image_safety"),
+                       (json.dumps({"choices": [{"message": {"content": ""}, "finish_reason": "content_filter"}]}), "content_filter")):
+        REPLY["body"] = body
+        try:
+            p.chat("sys", hist, tools)
+            ok(False, "blocked raised")
+        except llm.LlmBlocked as e:
+            ok(want in str(e), "refusal is readable: " + str(e))
+    REPLY["body"] = json.dumps({"response": {"candidates": [{"content": {"parts": [
+        {"text": "mikir", "thought": True}, {"text": "Cek"}, {"functionCall": {"name": "shell_run", "args": {"command": "ver"}}}]},
+        "finishReason": "STOP"}]}})
+    r = p.chat("sys", hist, tools)
+    ok(r.text == "Cek" and r.calls[0]["args"] == {"command": "ver"}, "raw Gemini candidates read")
+    REPLY["body"] = '{"weird": true}'
+    try:
+        p.chat("sys", hist, tools)
+    except llm.LlmError as e:
+        ok('"weird": true' in str(e), "unknown empty body shows what came back")
     print("LLM OK")
 
 

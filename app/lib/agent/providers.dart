@@ -108,6 +108,16 @@ class Providers {
     saveAll(list);
   }
 
+  /// Provider by id, or by name (case-insensitive, exact first then contains).
+  static ProviderCfg? find(String q) {
+    final list = all().where((p) => !p.isExternal).toList();
+    final l = q.trim().toLowerCase();
+    if (l.isEmpty) return null;
+    return list.where((p) => p.id == q.trim()).firstOrNull ??
+        list.where((p) => p.name.toLowerCase() == l).firstOrNull ??
+        list.where((p) => p.name.toLowerCase().contains(l)).firstOrNull;
+  }
+
   static ProviderCfg? get primary => all().where((p) => !p.disabled).firstOrNull;
 
   static Future<LlmProvider> build(ProviderCfg p) async {
@@ -120,13 +130,18 @@ class Providers {
   }
 
   /// All enabled API providers in order; [prefer] (a provider id) goes first.
-  static Future<LlmProvider> chain({String? prefer}) async {
+  /// [model] overrides the model of the [prefer]red provider (agent switched it for this chat).
+  static Future<LlmProvider> chain({String? prefer, String? model}) async {
     final built = <(String, LlmProvider)>[];
     String? firstErr;
     final list = all().where((p) => !p.disabled && !p.isExternal).toList();
     if (prefer != null && prefer.isNotEmpty) {
       final i = list.indexWhere((p) => p.id == prefer);
       if (i > 0) list.insert(0, list.removeAt(i));
+      if (i >= 0 && model != null && model.isNotEmpty) {
+        final p = list.first;
+        list[0] = ProviderCfg(id: p.id, kind: p.kind, name: '${p.name} · $model', base: p.base, model: model);
+      }
     }
     for (final p in list) {
       try {

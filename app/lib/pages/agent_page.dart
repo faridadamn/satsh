@@ -327,7 +327,7 @@ class _AgentPageState extends State<AgentPage> {
                       itemBuilder: (_, i) {
                         if (i == visible.length) return _Thinking(status: Redact.text(a.status), onStop: a.stop);
                         final m = visible[i];
-                        if (m.role == 'event') return _EventPill(m.text);
+                        if (m.role == 'event') return _EventPill(Redact.text(m.text));
                         return m.role == 'user' ? _UserBubble(m.text, images: m.images) : _AssistantBlock(m: m, results: results);
                       },
                     ),
@@ -519,7 +519,7 @@ class _TodoCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('${t['content']}',
+                    child: Text(Redact.text('${t['content']}'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -738,7 +738,7 @@ class _AssistantBlock extends StatelessWidget {
               ),
               border: Border.all(color: C.stroke),
             ),
-            child: MessageBody(m.calls.isEmpty ? m.text : Redact.text(m.text)),
+            child: MessageBody(Redact.text(m.text)),
           ),
         if (m.isError)
           TextButton.icon(

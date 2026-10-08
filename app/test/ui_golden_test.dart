@@ -188,6 +188,37 @@ void main() {
     a.session.todos = [];
   });
 
+  testWidgets('agent chat never shows secrets: narration, final answer, events, plan, status', (t) async {
+    final a = AgentController.i;
+    a.messages.addAll([
+      Msg(role: 'user', text: 'cek vps'),
+      Msg(role: 'assistant', text: 'Login pakai DB_PASSWORD=hunter22 dulu', calls: [
+        ToolCall(id: '1', name: 'ssh_exec', args: {'host': 'vps', 'command': 'mysql -u root -pRahasia123', 'password': 'x'}),
+      ]),
+      Msg(role: 'tool', callId: '1', name: 'ssh_exec', text: 'API_KEY=sk-proj-ABCDEFGHIJKLMNOPQRSTUV'),
+      Msg(role: 'event', text: '⚠️ HTTP 401 key sk-proj-ABCDEFGHIJKLMNOPQRSTUV'),
+      Msg(role: 'assistant', text: 'Beres. Server 103.45.67.89, passwordnya rahasia99, key sk-proj-ABCDEFGHIJKLMNOPQRSTUV'),
+    ]);
+    a.session.todos = [{'content': 'restart 103.45.67.89', 'status': 'pending'}];
+    t.view.physicalSize = const Size(1080, 2340);
+    t.view.devicePixelRatio = 3;
+    await t.pumpWidget(app(const Scaffold(body: AgentPage())));
+    await t.pump(const Duration(seconds: 2));
+    // expand the tool chip too
+    await t.tap(find.textContaining('ssh_exec').first, warnIfMissed: false);
+    await t.pump(const Duration(seconds: 1));
+    final shown = [
+      for (final r in t.widgetList<RichText>(find.byType(RichText))) r.text.toPlainText(),
+      for (final e in t.widgetList<EditableText>(find.byType(EditableText))) e.controller.text,
+    ].join('\n');
+    expect(shown, contains('Beres'));
+    for (final secret in ['hunter22', 'Rahasia123', 'ABCDEFGHIJKLMNOP', '103.45.67.89', 'rahasia99']) {
+      expect(shown, isNot(contains(secret)), reason: '$secret leaked into the chat UI');
+    }
+    a.messages.clear();
+    a.session.todos = [];
+  });
+
   testWidgets('settings', (t) => shot(t, const SettingsPage(), 'settings'));
   testWidgets('add provider sheet reaches Antigravity', (t) => shot(t, const SettingsPage(), 'provider_add', after: () async {
         final add = find.text('Tambah provider');

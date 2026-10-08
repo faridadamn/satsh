@@ -38,6 +38,9 @@ class AgentSession {
   /// Agent profile this chat belongs to (null = default).
   String? profile;
 
+  /// Model the agent switched this chat to: {'provider': id, 'model': name} (null = profile default).
+  Map<String, String>? model;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -51,6 +54,7 @@ class AgentSession {
         'unread': unread,
         if (ext.isNotEmpty) 'ext': ext,
         if (profile != null) 'profile': profile,
+        if (model != null) 'model': model,
         'messages': messages.map((m) => m.toJson()).toList(),
       };
 
@@ -70,6 +74,7 @@ class AgentSession {
     s.unread = j['unread'] ?? false;
     s.ext = Map<String, String>.from(j['ext'] ?? const {});
     s.profile = j['profile'];
+    s.model = j['model'] is Map ? Map<String, String>.from(j['model']) : null;
     return s;
   }
 }

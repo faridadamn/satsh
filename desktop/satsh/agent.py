@@ -55,6 +55,10 @@ class Cancelled(Exception):
     pass
 
 
+def generated_dir():
+    return os.environ.get("SATSH_GEN_DIR") or os.path.join(os.path.expanduser("~"), "Pictures", "satsh")
+
+
 class RunCtx:
     def __init__(self, session=None, depth=0, auto=False, deny_risky=False, max_steps=24, status=None, change=None, cancelled=None, profile=None):
         self.session = session
@@ -66,6 +70,7 @@ class RunCtx:
         self.status = status or (lambda s: None)
         self.change = change or (lambda: None)
         self.cancelled = cancelled or (lambda: False)
+        self.switch_to = None  # set by model_switch: used from the next step on
 
 
 def _transcript(msgs, limit):
@@ -104,9 +109,12 @@ class Agent:
             errlog.add("agent", e, {"aksi": "pasang preset"})
 
     # ----------------------------------------------------------- utils
-    def provider(self, profile=None):
+    def provider(self, profile=None, session=None):
         if self.provider_override:
             return self.provider_override
+        pick = (session or {}).get("model")
+        if pick and any(x.get("id") == pick.get("provider") and not x.get("disabled") for x in cfg.get("providers", [])):
+            return llm_mod.default_provider(pick.get("provider"), pick.get("model"))
         p = self.brain.profile(profile or self.brain.active_id) or {}
         return llm_mod.default_provider(p.get("provider") or None)
 
@@ -218,7 +226,7 @@ class Agent:
                 s["title"] = title_from(text)
             s["messages"].append({"role": "user", "text": user_text})
             self._emit_session(s)
-            llm = self.provider(pb.id)
+            llm = self.provider(pb.id, s)
             self.compress(s, llm)
             ctx = RunCtx(
                 session=s,
@@ -251,6 +259,8 @@ class Agent:
         for step in range(ctx.max_steps):
             if ctx.cancelled():
                 break
+            if ctx.switch_to is not None:
+                llm, ctx.switch_to = ctx.switch_to, None
             reply = llm.chat(system, self._slim(context_of() if context_of else history), specs)
             if ctx.cancelled():
                 break
@@ -417,6 +427,85 @@ Aturan: jangan duplikat isi memori yang udah ada, jangan simpen hal sepele/semen
                 tools.append({"name": name, "description": desc, "params": params, "required": list(required), "group": "brain", "risky": risky, "run": fn})
                 return fn
             return deco
+
+        def label(p, model):
+            return "%s / %s" % (p.get("name"), model or p.get("model") or "(default)")
+
+        @T("model_list", 'Lihat provider & model yang udah diset user (dan model yang lagi dipake chat ini). Kasih "provider" buat ambil daftar model yang tersedia di provider itu (opsional "filter", mis. "image").',
+           {"provider": {"type": "string", "description": "nama/id provider (opsional)"}, "filter": {"type": "string", "description": 'saring nama model, mis. "image"'}})
+        def _model_list(a):
+            ps = list(cfg.get("providers", []))
+            if not ps:
+                return "Belum ada provider."
+            q = (a.get("provider") or "").strip()
+            if not q:
+                cur = (ctx.session or {}).get("model")
+                lines = ["Provider (urutan = urutan fallback):"] + [
+                    "- %s [%s] model: %s%s id=%s" % (p.get("name"), p.get("kind", "openai"), p.get("model") or "(default)", " (mati)" if p.get("disabled") else "", p.get("id"))
+                    for p in ps]
+                lines.append("Chat ini lagi pakai: %s / %s" % ((llm_mod.find_provider(cur["provider"]) or {}).get("name", cur["provider"]), cur.get("model"))
+                             if cur else "Chat ini: pakai model default profil.")
+                return "\n".join(lines)
+            p = llm_mod.find_provider(q)
+            if not p:
+                raise ValueError('Provider "%s" ga ada. Yang ada: %s' % (q, ", ".join(x.get("name", "") for x in ps)))
+            models = llm_mod.build(p).models()
+            f = (a.get("filter") or "").lower().strip()
+            hit = [m for m in models if f in m.lower()]
+            if not hit:
+                return "Ga ada model%s di %s." % (' yang cocok "%s"' % f if f else "", p.get("name"))
+            return clip("Model di %s (%d):\n%s" % (p.get("name"), len(hit), "\n".join(hit[:200])), 6000)
+
+        @T("model_switch", "Ganti model yang kamu pakai buat sisa chat ini (mulai langkah berikutnya) kalau tugasnya butuh model lain — mis. yang lebih pinter buat analisa berat, "
+           "yang lebih murah/cepat buat kerjaan ringan, atau yang bisa lihat gambar. Ga ngubah pengaturan user. reset=true balik ke default. Buat BIKIN gambar pakai image_generate.",
+           {"provider": {"type": "string", "description": "nama/id provider (dari model_list)"}, "model": {"type": "string", "description": "nama model persis (kosong = bawaan provider)"},
+            "reason": {"type": "string", "description": "kenapa ganti"}, "reset": {"type": "boolean"}})
+        def _model_switch(a):
+            sess = ctx.session
+            if a.get("reset"):
+                if sess is not None:
+                    sess.pop("model", None)
+                ctx.switch_to = self.provider(pb.id)
+                if sess is not None:
+                    sess["messages"].append({"role": "event", "text": "🔁 Model chat ini: default"})
+                ctx.change()
+                return "Balik ke model default profil mulai langkah berikutnya."
+            p = llm_mod.find_provider(a.get("provider") or "")
+            if not p:
+                raise ValueError('Provider "%s" ga ada. Cek model_list.' % a.get("provider"))
+            if p.get("disabled"):
+                raise ValueError("%s lagi dimatiin user." % p.get("name"))
+            model = (a.get("model") or "").strip()
+            ctx.switch_to = llm_mod.default_provider(p["id"], model or None)
+            if sess is not None:
+                sess["model"] = {"provider": p["id"], "model": model or p.get("model") or ""}
+                sess["messages"].append({"role": "event", "text": "🔁 Model chat ini: " + label(p, model)})
+            ctx.change()
+            return "Oke, mulai langkah berikutnya pakai %s%s. Provider lain tetep jadi cadangan." % (label(p, model), (" (%s)" % a["reason"]) if a.get("reason") else "")
+
+        @T("image_generate", "Bikin gambar dari teks pakai model khusus gambar (mis. gemini-*-image, gpt-image-*, dall-e-3, flux). Cek dulu model yang ada pakai "
+           'model_list(provider, filter:"image"). Gambar disimpen ke folder Pictures/satsh dan kamu bisa lihat hasilnya.',
+           {"prompt": {"type": "string", "description": "deskripsi gambar yang detail"}, "provider": S, "model": S, "size": {"type": "string", "description": "mis. 1024x1024"}},
+           ["prompt", "provider", "model"])
+        def _image_generate(a):
+            import datetime as _dt
+            from .tools import for_model
+            p = llm_mod.find_provider(a.get("provider") or "")
+            if not p:
+                raise ValueError('Provider "%s" ga ada. Cek model_list.' % a.get("provider"))
+            data, mime, gnote = llm_mod.generate_image(p, a.get("model") or "", a.get("prompt") or "", a.get("size") or "1024x1024")
+            ext = "png" if "png" in mime else "webp" if "webp" in mime else "jpg"
+            d = generated_dir()
+            os.makedirs(d, exist_ok=True)
+            path = os.path.join(d, _dt.datetime.now().strftime("satsh-%Y%m%d-%H%M%S.") + ext)
+            with open(path, "wb") as f:
+                f.write(data)
+            out = {"text": "Gambar jadi: %s (%d KB, %s/%s)%s" % (path, len(data) // 1024, p.get("name"), a.get("model"), ("\nCatatan model: " + gnote) if gnote else "")}
+            try:
+                out["images"] = [for_model(path)[0]]
+            except Exception:  # noqa — no PIL / odd format: the model just gets the path
+                pass
+            return out
 
         @T("memory", 'Kelola memori jangka panjang yang selalu muncul di prompt kamu. target "memory" = catatan lingkungan/proyek/pelajaran; "user" = profil & preferensi user. action: add (content), replace (old_text → content), remove (old_text). Ada batas karakter — kalau penuh, gabungin/hapus entri lama.',
            {"action": {"type": "string", "enum": ["add", "replace", "remove"]}, "target": {"type": "string", "enum": ["memory", "user"]},

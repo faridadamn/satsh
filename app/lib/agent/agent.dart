@@ -9,10 +9,12 @@ import '../store.dart';
 import 'brain.dart';
 import 'external.dart';
 import 'llm.dart';
+import 'model_tools.dart';
 import 'presets.dart';
 import 'providers.dart';
 import 'skill_push.dart';
 import 'tools.dart';
+import '../redact.dart';
 import '../vision.dart';
 import '../native.dart';
 import '../markas.dart';
@@ -45,6 +47,9 @@ class RunCtx {
   final bool Function()? isCancelled;
   final int maxSteps;
   bool get cancelled => isCancelled?.call() ?? false;
+
+  /// Set by model_switch: the loop uses this model from its next step on.
+  LlmProvider? switchTo;
 }
 
 class AgentController extends ChangeNotifier {
@@ -148,8 +153,12 @@ class AgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<LlmProvider> provider({String? profile}) async {
+  Future<LlmProvider> provider({String? profile, AgentSession? session}) async {
     if (providerOverride != null) return providerOverride!;
+    final pick = session?.model;
+    if (pick != null && Providers.all().any((p) => p.id == pick['provider'] && !p.disabled)) {
+      return Providers.chain(prefer: pick['provider'], model: pick['model']);
+    }
     return Providers.chain(prefer: brain.profile(profile ?? brain.activeId)?.provider);
   }
 
@@ -220,7 +229,7 @@ ${worker ? '' : '''
     speakNext = false;
     if (ans.isNotEmpty) {
       final err = messages.isNotEmpty && messages.last.isError;
-      unawaited(Native.notifyIfAway(err ? 'Agent error' : 'Agent selesai', ans.replaceAll(RegExp(r'[*_`#>]'), '')));
+      unawaited(Native.notifyIfAway(err ? 'Agent error' : 'Agent selesai', Redact.text(ans).replaceAll(RegExp(r'[*_`#>]'), '')));
     }
   }
 
@@ -267,7 +276,7 @@ ${worker ? '' : '''
     LlmProvider? llm;
     try {
       final pb = await brain.view(session.profile);
-      llm = await provider(profile: pb.id);
+      llm = await provider(profile: pb.id, session: session);
       await compress(session, llm);
       final ctx = RunCtx(
         session: session,
@@ -357,6 +366,10 @@ ${worker ? '' : '''
     var finalText = '';
     for (var step = 0; step < ctx.maxSteps; step++) {
       if (ctx.cancelled) break;
+      if (ctx.switchTo != null) {
+        llm = ctx.switchTo!;
+        ctx.switchTo = null;
+      }
       final reply = await llm.chat(system, _slim(contextOf?.call() ?? history), tools.map((t) => t.spec).toList());
       if (ctx.cancelled) break;
       history.add(Msg(role: 'assistant', text: reply.text, calls: reply.calls, raw: reply.raw));
@@ -425,7 +438,7 @@ ${worker ? '' : '''
   /// Serializes approval prompts (subagents may ask in parallel).
   Future<String> _approve(AgentTool tool, Map<String, dynamic> args) {
     final done = Completer<String>();
-    unawaited(Native.notifyIfAway('Agent nunggu izin lu', '${tool.spec.name}: ${jsonEncode(args)}', id: 2));
+    unawaited(Native.notifyIfAway('Agent nunggu izin lu', '${tool.spec.name}: ${jsonEncode(Redact.args(args))}', id: 2));
     _approvalLock = _approvalLock.then((_) async {
       try {
         done.complete(await (approver?.call(tool, args) ?? Future.value('no')));
@@ -578,6 +591,14 @@ ${pb.skillsIndex()}''',
     final note = onNote ?? (_) {};
     final pb = ctx.profile ?? brain.active;
     return [
+      ...modelTools(
+        session: ctx.session,
+        onSwitch: (llm, label) async {
+          ctx.switchTo = llm ?? await provider(profile: pb.id);
+          ctx.session?.messages.add(Msg(role: 'event', text: '🔁 Model chat ini: $label'));
+          ctx.onChange?.call();
+        },
+      ),
       AgentTool(
         const ToolSpec(
           name: 'memory',
