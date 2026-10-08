@@ -6,3 +6,8 @@ __pycache__/
 *.pyc
 .DS_Store
 app/test/failures/
+app/android/build/
+app/android/local.properties
+key.properties
+*.jks
+*.keystore
