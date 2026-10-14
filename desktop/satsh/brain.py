@@ -747,6 +747,10 @@ class Brain:
             try:
                 with open(p, "r", encoding="utf-8") as f:
                     self.jobs = [CronJob(j) for j in json.load(f)]
+                # Markas was removed: drop its scheduled meeting (it only called removed tools).
+                if any(j.get("name") == "Rapat Markas" for j in self.jobs):
+                    self.jobs = [j for j in self.jobs if j.get("name") != "Rapat Markas"]
+                    self.save_jobs()
             except Exception:
                 self.jobs = []
 

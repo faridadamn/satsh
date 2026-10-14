@@ -15,7 +15,6 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import agentzip, errlog, presets, redact, skill_push
-from . import markas_client as markas
 from . import llm as llm_mod
 from .agent import agent, bus, cron
 from .brain import CronJob, now_ms
@@ -338,15 +337,6 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
-        if path == "/api/markas":
-            h = markas.host()
-            r = {"configured": markas.configured(), "hostId": markas.host_id(), "host": h["label"] if h else "", "rapatPrompt": markas.RAPAT_PROMPT}
-            if r["configured"]:
-                try:
-                    r["snap"] = markas.status()
-                except Exception as e:  # noqa
-                    r["error"] = str(e)
-            return self.send_json(r)
         if path == "/api/errors":
             return self.send_json({"entries": list(reversed(errlog.entries)), "version": __import__("satsh").__version__})
         if path == "/api/errors/report":
@@ -419,22 +409,6 @@ class Handler(BaseHTTPRequestHandler):
         d = self.jbody()
         b = agent.brain
         ok = {"ok": True}
-        if path == "/api/markas/install":
-            out = markas.install(d["hostId"])
-            return self.send_json({"ok": True, "hermes": "HERMES_SKILL_OK" in out, "hermesCli": "HERMES_CLI_OK" in out})
-        if path == "/api/markas/host":
-            cfg.set("markasHost", d.get("hostId") or "")
-            return self.send_json(ok)
-        if path == "/api/markas/run":
-            args = [str(x) for x in (d.get("args") or [])]
-            if not args or args[0] not in ("target", "log", "say", "read", "brief", "status", "inbox"):
-                raise ApiError("perintah markas ga diizinin")
-            out = markas.run(args, who="adam")
-            bus.emit("markas", {})
-            return self.send_json({"out": out})
-        if path == "/api/markas/rapat":
-            b.set_active("default")
-            return self.send_json({"sid": agent.send(None, markas.RAPAT_PROMPT)})
         if path == "/api/errors/clear":
             errlog.clear()
             return self.send_json(ok)
@@ -509,8 +483,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/skillpush/status":
             h = _host(d["hostId"])
             st = skill_push.status(h)
-            mk = skill_push.markas_skill()
-            alls = list(b.skills) + ([mk] if mk and not b.skill("markas") else [])
+            alls = list(b.skills)
             names = {s["name"] for s in alls}
             cfg.set("skillPushHost", h["id"])
             return self.send_json({"hasAgent": st["hasAgent"],
@@ -518,10 +491,9 @@ class Handler(BaseHTTPRequestHandler):
                                    "onlyRemote": [r for r in st["remote"] if r["name"] not in names]})
         if path == "/api/skillpush/push":
             h = _host(d["hostId"])
-            mk = skill_push.markas_skill()
             done, errs = [], []
             for n in d.get("names") or []:
-                sk = b.skill(n) or (mk if n == "markas" else None)
+                sk = b.skill(n)
                 if not sk:
                     errs.append("%s: ga ada" % n)
                     continue

@@ -127,14 +127,12 @@ def push():
         ok(st["hasAgent"] and skill_push.state_of(st, sk) == "missing", "missing before push")
         ok(skill_push.push(h, sk) == "~/.hermes/skills/satsh/cek-server/SKILL.md", "pushed path")
         ok(skill_push.state_of(skill_push.status(h), sk) == "same", "same after push")
-        mk = skill_push.markas_skill()
-        ok(mk and skill_push.push(h, mk) == "~/.hermes/skills/markas/SKILL.md", "markas skill goes where install.sh puts it")
         d = os.path.join(home, ".hermes", "skills", "devops", "cek-log")
         os.makedirs(d)
         with open(os.path.join(d, "SKILL.md"), "w") as f:
             f.write("---\nname: cek-log\ndescription: baca log 'kutip'\n---\n1. journalctl\n")
         st = skill_push.status(h)
-        only = [r for r in st["remote"] if r["name"] not in {s["name"] for s in b.skills} | {"markas"}]
+        only = [r for r in st["remote"] if r["name"] not in {s["name"] for s in b.skills}]
         ok([r["path"] for r in only] == ["devops/cek-log/SKILL.md"], "Hermes' own skill found in a category folder")
         ok(b.save_skill(skill_push.pull(h, only[0]["path"])) == "cek-log", "pulled into satsh")
         ok(skill_push.hash_of(skill_push.prepare(sk["raw"])) == st["remote"][[r["name"] for r in st["remote"]].index("cek-server")]["hash"], "hash matches file")

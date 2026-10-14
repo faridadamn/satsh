@@ -10,7 +10,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from . import errlog, presets, redact, skill_push
-from . import markas_client as markas
 from . import llm as llm_mod
 from .brain import Brain, CronJob, new_agent_soul, now_ms, title_from
 from .config import cfg, new_id
@@ -139,9 +138,6 @@ class Agent:
         meta = pb.meta
         hosts = ", ".join("%s (%s@%s)" % (h["label"], h["username"], h["host"]) for h in ssh.hosts) or "(belum ada)"
         extra = (cfg.get("agentPrompt") or "").strip()
-        if markas.configured() and not worker:
-            hosts += ("\n- MARKAS aktif (workspace bareng Adam, hermes, agy, muse, web-designer): pakai tool markas buat target/pencapaian/obrolan, "
-                      "tanya_agent buat nanya agent lain. Kalau beresin sesuatu yang nyambung ke target Markas, catat (log / target_update).")
         head = ("Kamu sub-agent satsh. Kerjain SATU tugas yang dikasih sampai beres pakai tools, lalu balas dengan laporan ringkas & faktual (hasil, data penting, error). Jangan ngobrol."
                 if worker else pb.soul.strip())
         if not worker and len(self.brain.profiles) > 1:
@@ -576,18 +572,17 @@ Aturan: jangan duplikat isi memori yang udah ada, jangan simpen hal sepele/semen
 
         @T("skill_push", 'Kirim (push) skill satsh ke agent lain di server lewat SSH — sekarang: Hermes (~/.hermes/skills/satsh/<nama>/SKILL.md, '
            'kepakai di sesi Hermes berikutnya). action: status (bandingin skill di sini vs di server) | push (names: daftar nama skill; '
-           '"markas" = skill Markas bawaan buat Hermes). host: nama server (default: server Markas).',
+           'host: nama server tempat Hermes jalan (wajib kalau server tersimpan lebih dari satu).',
            {"action": {"type": "string", "enum": ["status", "push"]}, "names": {"type": "array", "items": S}, "host": S}, ["action"], risky=True)
         def _sp(a):
             hn = (a.get("host") or "").strip()
-            h = ssh.find(hn) if hn else markas.host()
+            h = ssh.find(hn) if hn else (ssh.hosts[0] if len(ssh.hosts) == 1 else None)
             if h is None:
                 raise ValueError("Sebutin host-nya (server tempat Hermes jalan).")
             st = skill_push.status(h)
             if not st["hasAgent"]:
                 raise ValueError("Hermes ga ketemu di %s (~/.hermes ga ada)." % h["label"])
-            mk = skill_push.markas_skill()
-            alls = list(pb.skills) + ([mk] if mk and not pb.skill("markas") else [])
+            alls = list(pb.skills)
             if a.get("action") == "status":
                 lab = {"same": "sama", "differs": "BEDA", "missing": "belum ada"}
                 names = {s["name"] for s in alls}
@@ -763,79 +758,6 @@ Aturan: jangan duplikat isi memori yang udah ada, jangan simpen hal sepele/semen
                 return 'Jadwal "%s" lagi dijalanin di background.' % j["name"]
             b.save_jobs()
             return 'OK, "%s" %s.' % (j["name"], act)
-
-        if markas.configured():
-            me = "satsh" if pb.id == "default" else pb.id
-
-            def _mk(name, desc, params, required):
-                def deco(fn):
-                    tools.append({"name": name, "description": desc, "params": params, "required": list(required), "group": "markas", "risky": False, "run": fn})
-                    return fn
-                return deco
-
-            I = {"type": "integer"}
-
-            @_mk("markas", "MARKAS = workspace bareng Adam & agent-agentnya (satsh, web-designer, hermes, agy, muse): target, log pencapaian, obrolan. "
-                 "action: brief (ringkasan) | status | target_add (title, owner, deadline YYYY-MM-DD, metric) | target_update (id, progress 0-100, status aktif|selesai|ditunda|batal, owner, note) | "
-                 "log (text, target, proof) | say (text, to, room) | read (room) | inbox (pesan buat lu). Nama lu di markas otomatis = nama profil.",
-                 {"action": {"type": "string", "enum": ["brief", "status", "target_add", "target_update", "log", "say", "read", "inbox"]},
-                  "title": S, "owner": {"type": "string", "description": "PIC: adam, satsh, web-designer, hermes, agy, muse"}, "deadline": S,
-                  "metric": {"type": "string", "description": "ukuran sukses"}, "id": I, "progress": I, "status": S, "note": S,
-                  "text": S, "target": I, "proof": S, "room": S, "to": S}, ["action"])
-            def _markas(a):
-                def v(k):
-                    x = a.get(k)
-                    return None if x is None or str(x).strip() == "" else str(x).strip()
-
-                def need(k):
-                    x = v(k)
-                    if x is None:
-                        raise ValueError(k + " wajib")
-                    return x
-
-                def opt(*keys):
-                    out = []
-                    for k in keys:
-                        if v(k) is not None:
-                            out += ["--" + k, v(k)]
-                    return out
-
-                act = a.get("action")
-                args = {
-                    "brief": lambda: ["brief", "--for", me],
-                    "status": lambda: ["status"],
-                    "target_add": lambda: ["target", "add", need("title")] + opt("owner", "deadline", "metric"),
-                    "target_update": lambda: ["target", "update", need("id")] + opt("progress", "status", "owner", "deadline", "note"),
-                    "log": lambda: ["log", need("text")] + opt("target", "proof"),
-                    "say": lambda: ["say", need("text")] + opt("to", "room"),
-                    "read": lambda: ["read"] + opt("room"),
-                    "inbox": lambda: ["inbox", "--for", me],
-                }.get(act)
-                if args is None:
-                    raise ValueError("action ga dikenal")
-                out = markas.run(args(), who=me)
-                if act not in ("brief", "status", "read"):
-                    bus.emit("markas", {})
-                return clip(out)
-
-            @_mk("tanya_agent", "Nanya / ngasih tugas ke agent lain anggota Markas: hermes (CLI di server Markas, langsung dijawab), "
-                 "agy & muse (jalan di HP Adam — dari laptop cuma bisa dititipin pesan di Markas). Tanya singkat & spesifik (target #ID, apa yang udah, kendala).",
-                 {"agent": {"type": "string", "enum": ["hermes", "agy", "muse"]}, "message": S}, ["agent", "message"])
-            def _tanya(a):
-                msg = (a.get("message") or "").strip()
-                if not msg:
-                    raise ValueError("message kosong")
-                who = a.get("agent")
-                if who == "hermes":
-                    if ctx.status:
-                        ctx.status("Nanya Hermes…")
-                    return clip("Hermes:\n" + markas.ask_hermes(msg))
-                if who in ("agy", "muse"):
-                    markas.run(["say", msg, "--to", who], who=me)
-                    bus.emit("markas", {})
-                    return ("%s jalan di HP Adam, ga bisa ditanya langsung dari laptop. Pesan udah dititipin di Markas (to=%s) — "
-                            "bakal dijawab pas satsh HP rapat / Adam nyampein. Catat status target-nya \"nunggu jawaban %s\"." % (who, who, who))
-                raise ValueError("agent ga dikenal")
 
         return tools
 

@@ -6,7 +6,6 @@ import base64
 import datetime as dt
 import hashlib
 import json
-import os
 import re
 import shlex
 import time
@@ -15,14 +14,13 @@ from .brain import parse_skill
 from .ssh import ssh
 
 HERMES_ROOT = "$HOME/.hermes/skills"
-MARKAS_SKILL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "markas", "hermes-SKILL.md")
 
 # tests: fn(cmd) -> (code, stdout, stderr)
 exec_override = None
 
 
 def dir_for(name):
-    return "markas" if name == "markas" else "satsh/" + name
+    return "satsh/" + name
 
 
 def _exec(h, cmd, timeout=45):
@@ -63,14 +61,6 @@ def prepare(raw):
         return t + "\n"
     cut = m.end() - 3
     return t[:cut] + "version: 1.0.0\n" + t[cut:] + "\n"
-
-
-def markas_skill():
-    try:
-        with open(MARKAS_SKILL, "r", encoding="utf-8") as f:
-            return parse_skill(f.read(), "markas")
-    except OSError:
-        return None
 
 
 def status(h):

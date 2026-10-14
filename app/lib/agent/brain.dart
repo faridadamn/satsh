@@ -885,6 +885,11 @@ class Brain extends ChangeNotifier {
     jobs = await f.exists()
         ? (jsonDecode(await f.readAsString()) as List).map((e) => CronJob.fromJson(Map<String, dynamic>.from(e))).toList()
         : [];
+    // Markas was removed in 2.7.0; its scheduled meeting would only call tools
+    // that no longer exist.
+    final before = jobs.length;
+    jobs.removeWhere((j) => j.name == 'Rapat Markas');
+    if (jobs.length != before) await saveJobs();
   }
 
   Future<void> saveJobs() async {

@@ -91,11 +91,11 @@ function sw(checked, onchange) { const i = h("input", { type: "checkbox" }); i.c
 function seg(opts, val, onpick) { return h("div", { class: "seg" }, opts.map(([v, l]) => h("button", { class: v === val ? "on" : "", onclick: () => onpick(v) }, l))); }
 
 // ---------------------------------------------------------------- app state
-const S = { view: localStorage.getItem("view") || "agent", st: null, sid: localStorage.getItem("sid") || null, session: null, expanded: new Set(), sessOpen: false, brainTab: "soul", setTab: "agent", hostSub: null };
+const S = { view: (localStorage.getItem("view") === "markas" ? null : localStorage.getItem("view")) || "agent", st: null, sid: localStorage.getItem("sid") || null, session: null, expanded: new Set(), sessOpen: false, brainTab: "soul", setTab: "agent", hostSub: null };
 function setView(v) { S.view = v; localStorage.setItem("view", v); renderNav(); render(); }
 async function refresh() { S.st = await api("/api/state"); document.documentElement.dataset.theme = S.st.settings.theme || "dark"; renderNav(); }
 
-const NAV = [["agent", "Agent", "agent"], ["markas", "Markas", "users"], ["host", "Host", "host"], ["brain", "Otak", "brain"], ["settings", "Pengaturan", "gear"]];
+const NAV = [["agent", "Agent", "agent"], ["host", "Host", "host"], ["brain", "Otak", "brain"], ["settings", "Pengaturan", "gear"]];
 function renderNav() {
   const unread = S.st ? S.st.sessions.filter((m) => m.unread).length : 0;
   const btn = ([v, l, ic]) => h("button", { class: "navbtn" + (S.view === v ? " on" : ""), onclick: () => setView(v) }, icon(ic), h("span", { class: "lbl" }, l), v === "agent" && unread ? h("span", { class: "badge" }, unread) : null);
@@ -106,7 +106,7 @@ function renderNav() {
 function render() {
   if (!S.st) return;
   const main = $("#main");
-  const views = { agent: viewAgent, markas: viewMarkas, host: viewHost, brain: viewBrain, settings: viewSettings };
+  const views = { agent: viewAgent, host: viewHost, brain: viewBrain, settings: viewSettings };
   const box = main.querySelector(".term-box");
   const keepTerm = S.view === "host" && S.hostSub && S.hostSub.type === "term" && box && box.dataset.tid === S.hostSub.id;
   if (keepTerm) return renderTermChrome();
@@ -645,7 +645,7 @@ async function pushSkills(only) {
   const LAB = { same: ["sinkron", "var(--green)"], differs: ["beda", "var(--amber)"], missing: ["belum ada", "var(--muted)"] };
   await modal((close) => {
     const pick = h("select", { class: "field" }, hosts.map((x) => h("option", { value: x.id }, x.label + " · " + x.host)));
-    pick.value = (S.st.settings.skillPushHost && hosts.some((x) => x.id === S.st.settings.skillPushHost)) ? S.st.settings.skillPushHost : (S.st.settings.markasHost || hosts[0].id);
+    pick.value = (S.st.settings.skillPushHost && hosts.some((x) => x.id === S.st.settings.skillPushHost)) ? S.st.settings.skillPushHost : hosts[0].id;
     const body = h("div", { class: "col" }), chosen = new Set(only ? [only] : []);
     const load = async () => {
       body.replaceChildren(h("div", { class: "muted" }, "Ngecek skill di server…"));
@@ -974,84 +974,3 @@ async function setErrors(el) {
       list.length ? h("button", { class: "btn danger", onclick: async () => { if (await confirmBox("Hapus semua log?", "")) { await api("/api/errors/clear", {}); await refresh(); render(); } } }, "Hapus") : null)), box);
 }
 
-// ------------------------------------------------------------------- markas
-const WHO = { adam: "var(--pink)", satsh: "var(--cyan)", hermes: "var(--amber)", muse: "var(--violet)", agy: "var(--green)" };
-const whoC = (w) => WHO[w] || "var(--muted)";
-function viewMarkas() {
-  const body = h("div", { class: "pane-inner stagger" }, h("div", { class: "muted" }, "Ngambil data Markas…"));
-  const v = h("div", { class: "view" }, h("div", { class: "pane" }, body));
-  api("/api/markas").then((r) => { S.mk = r; S.mkPrompt = r.rapatPrompt; drawMarkas(body, r); }).catch((e) => body.replaceChildren(h("div", { class: "card" }, e.message)));
-  return v;
-}
-function drawMarkas(el, r) {
-  const run = async (args, msg) => { await tryDo(() => api("/api/markas/run", { args }), msg); render(); };
-  if (!r.configured) {
-    const hosts = S.st.hosts;
-    const pick = h("select", { class: "field" }, hosts.map((x) => h("option", { value: x.id }, x.label + " (" + x.username + "@" + x.host + ")")));
-    const pref = hosts.find((x) => /adamn/i.test(x.label + x.host)); if (pref) pick.value = pref.id;
-    el.replaceChildren(h("h1", { class: "grad-text" }, "Markas"),
-      h("p", { class: "muted" }, "Workspace bareng lu & semua agent: target, pencapaian, obrolan. Datanya di server lu sendiri (program kecil `markas`, diakses lewat SSH — ga buka port apa-apa). Kalau Hermes ada di server itu, skill-nya ikut dipasang. satsh HP & laptop bisa pakai server yang sama."),
-      hosts.length ? h("div", { class: "col", style: { gap: "12px" } }, pick,
-        h("button", { class: "btn primary", onclick: async () => { const x = await tryDo(() => api("/api/markas/install", { hostId: pick.value })); toast(x.hermes ? "Markas kepasang + skill Hermes" : "Markas kepasang" + (x.hermesCli ? "" : " (Hermes ga ketemu di server ini)")); render(); } }, icon("power"), "Pasang Markas"),
-        h("button", { class: "btn ghost", onclick: async () => { await api("/api/markas/host", { hostId: pick.value }); render(); } }, "Udah kepasang (dari HP) — sambungin aja"))
-        : h("div", { class: "card" }, "Tambahin server dulu di menu Host."));
-    return;
-  }
-  const s = r.snap || {};
-  const targets = (s.targets || []).filter((t) => t.status === "aktif");
-  const members = (s.members || []).map((m) => m.name);
-  const job = S.st.jobs.find((j) => j.name === "Rapat Markas");
-  const top = h("div", { class: "row", style: { flexWrap: "wrap", gap: "8px" } }, h("h1", { class: "grad-text", style: { margin: 0, fontSize: "28px" } }, "Markas"), h("span", { class: "chip" }, r.host || "server"), h("div", { class: "spacer" }),
-    h("button", { class: "icon-btn", title: "Refresh", onclick: () => render() }, icon("refresh")),
-    h("button", { class: "btn", onclick: async () => {
-      if (await confirmBox(job ? "Matikan rapat harian?" : "Rapat tiap hari jam 08:00?", job ? "" : "satsh bakal nanya PIC tiap target & ngirim rangkuman ke lu.", job ? "Matikan" : "Jadwalkan", !!job)) {
-        if (job) await api("/api/job/delete", { id: job.id }); else await api("/api/job", { name: "Rapat Markas", prompt: S.mkPrompt || "[Rapat Markas] jalankan rapat Markas: markas brief, tanya PIC tiap target aktif (tanya_agent), catat (log/target_update), markas say rangkuman ke adam.", dailyAt: "08:00", enabled: true });
-        await refresh(); render();
-      } } }, icon("history"), job ? "Rapat harian ✓" : "Jadwalkan"),
-    h("button", { class: "btn primary", onclick: async () => { const x = await tryDo(() => api("/api/markas/rapat", {})); S.sid = x.sid; localStorage.setItem("sid", x.sid); await refresh(); setView("agent"); loadSession(); } }, icon("users"), "Mulai rapat"));
-  const kids = [top];
-  if (r.error) kids.push(h("div", { class: "card", style: { color: "var(--red)" } }, r.error, h("div", { class: "row", style: { marginTop: "8px" } }, h("button", { class: "btn ghost", onclick: async () => { await api("/api/markas/host", { hostId: "" }); render(); } }, "Ganti server"))));
-  kids.push(h("div", { class: "row" }, h("h2", {}, "Target aktif"), h("span", { class: "muted" }, targets.length + " · selesai " + (s.selesai || 0)), h("div", { class: "spacer" }),
-    h("button", { class: "btn", onclick: () => addTarget(members, run) }, "+ Target")));
-  if (!targets.length) kids.push(h("div", { class: "muted" }, "Belum ada target. Tambahin, atau suruh agent: \"bikin target Markas: …\""));
-  targets.forEach((t) => kids.push(h("div", { class: "card col", style: { cursor: "pointer" }, onclick: () => editTarget(t, run) },
-    h("div", { class: "row" }, h("b", { style: { flex: 1 } }, "#" + t.id + " " + t.title), h("b", { style: { color: "var(--cyan)" } }, (t.progress || 0) + "%")),
-    h("div", { style: { height: "6px", background: "var(--surface2)", borderRadius: "6px", overflow: "hidden", margin: "4px 0" } }, h("div", { style: { height: "100%", width: (t.progress || 0) + "%", background: "var(--accent)" } })),
-    h("div", { class: "row muted", style: { fontSize: "12px", gap: "12px", flexWrap: "wrap" } }, t.owner ? h("b", { style: { color: whoC(t.owner) } }, "PIC " + t.owner) : null,
-      t.deadline ? "tenggat " + t.deadline : null, t.metric || null))));
-  kids.push(h("h2", {}, "Pencapaian terbaru"));
-  (s.logs || []).slice().reverse().slice(0, 12).forEach((l) => kids.push(h("div", { class: "row", style: { alignItems: "flex-start" } }, h("span", { style: { color: whoC(l.who) } }, "✔"),
-    h("div", {}, h("b", { style: { color: whoC(l.who) } }, l.who + " "), l.text, l.target_id ? h("span", { class: "muted" }, "  #" + l.target_id) : null, h("span", { class: "muted", style: { fontSize: "11px" } }, "  " + String(l.at || "").slice(5, 16))))));
-  kids.push(h("h2", {}, "Obrolan"));
-  (s.messages || []).slice().reverse().forEach((m) => kids.push(h("div", { class: "card", style: { padding: "10px 14px", background: m.who === "adam" ? "rgba(124,92,255,.12)" : "" } },
-    h("div", { style: { fontSize: "12px", fontWeight: 700, color: whoC(m.who) } }, m.who + (m.to_name ? " → " + m.to_name : "")), h("div", { class: "md", html: md(m.text) }))));
-  const inp = h("input", { class: "field", placeholder: "Tulis ke Markas… (awali @hermes buat nyolek)" });
-  const send = async () => { let t = inp.value.trim(); if (!t) return; const a = ["say"]; const mm = t.match(/^@([\w-]+)\s+([\s\S]+)/); if (mm) { a.push(mm[2], "--to", mm[1]); } else a.push(t); inp.value = ""; await run(a); };
-  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
-  kids.push(h("div", { class: "row" }, inp, h("button", { class: "btn primary", onclick: send }, icon("send"))));
-  el.replaceChildren(...kids);
-}
-function addTarget(members, run) {
-  modal((close) => {
-    const title = h("input", { class: "field", placeholder: "Target (mis. 10 UMKM bayar Payu)" });
-    const owner = h("select", { class: "field" }, (members.length ? members : ["adam"]).map((n) => h("option", { value: n }, n)));
-    const metric = h("input", { class: "field", placeholder: "Ukuran sukses (opsional)" });
-    const dl = h("input", { class: "field", type: "date" });
-    return [h("h2", {}, "Target baru"), h("div", { class: "col", style: { gap: "10px" } }, title, h("label", { class: "muted" }, "PIC"), owner, metric, h("label", { class: "muted" }, "Tenggat"), dl),
-      h("div", { class: "row", style: { justifyContent: "flex-end", marginTop: "14px" } }, h("button", { class: "btn ghost", onclick: () => close() }, "Batal"),
-        h("button", { class: "btn primary", onclick: async () => { if (!title.value.trim()) return; close(); const a = ["target", "add", title.value.trim(), "--owner", owner.value];
-          if (metric.value.trim()) a.push("--metric", metric.value.trim()); if (dl.value) a.push("--deadline", dl.value); await run(a, "Target ditambah"); } }, "Simpan"))];
-  });
-}
-function editTarget(t, run) {
-  modal((close) => {
-    const pr = h("input", { type: "range", min: 0, max: 100, step: 5, value: t.progress || 0, style: { width: "100%" } });
-    const lbl = h("b", {}, (t.progress || 0) + "%"); pr.oninput = () => { lbl.textContent = pr.value + "%"; };
-    const st = h("select", { class: "field" }, ["aktif", "selesai", "ditunda", "batal"].map((x) => h("option", { value: x }, x))); st.value = t.status;
-    const note = h("input", { class: "field", placeholder: "Catatan (masuk ke pencapaian)" });
-    return [h("h2", {}, "#" + t.id + " " + t.title), h("div", { class: "row" }, pr, lbl), st, note,
-      h("div", { class: "row", style: { justifyContent: "flex-end", marginTop: "14px" } }, h("button", { class: "btn ghost", onclick: () => close() }, "Batal"),
-        h("button", { class: "btn primary", onclick: async () => { close(); const a = ["target", "update", String(t.id), "--progress", pr.value]; if (st.value !== t.status) a.push("--status", st.value);
-          if (note.value.trim()) a.push("--note", note.value.trim()); await run(a, "Target diupdate"); } }, "Simpan"))];
-  });
-}

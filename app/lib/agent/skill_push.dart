@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import '../models.dart';
 import '../ssh_manager.dart';
@@ -59,7 +58,7 @@ class PushStatus {
 class SkillPush {
   SkillPush._();
 
-  static final hermes = SkillTarget('hermes', 'Hermes', r'$HOME/.hermes/skills', (n) => n == 'markas' ? 'markas' : 'satsh/$n');
+  static final hermes = SkillTarget('hermes', 'Hermes', r'$HOME/.hermes/skills', (n) => 'satsh/$n');
   static final targets = {hermes.id: hermes};
 
   /// For tests: run [cmd] somewhere else (exit code, stdout, stderr).
@@ -84,15 +83,6 @@ class SkillPush {
       await b.cancel();
     }
     return (s.exitCode ?? -1, utf8.decode(out.takeBytes(), allowMalformed: true), utf8.decode(err.takeBytes(), allowMalformed: true));
-  }
-
-  /// The Markas skill for Hermes that ships with satsh (assets/markas/hermes-SKILL.md).
-  static Future<Skill?> markasSkill() async {
-    try {
-      return Brain.parseSkill(await rootBundle.loadString('assets/markas/hermes-SKILL.md'), fallbackName: 'markas');
-    } catch (_) {
-      return null;
-    }
   }
 
   static String q(String s) => "'${s.replaceAll("'", "'\\''")}'";
