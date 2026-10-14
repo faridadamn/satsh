@@ -31,6 +31,67 @@ class TermSession extends ChangeNotifier {
   bool alt = false;
   StreamSubscription? _out, _err;
 
+  // ------------------------------------------------------------ output pump
+  // Server output used to go straight into terminal.write() chunk by chunk.
+  // Every write relayouts the view and (with the keyboard open) sends two
+  // platform-channel calls, so a long/fast stream (logs, cat, build output)
+  // froze the UI thread until Android killed the app. Now output is queued,
+  // written about once per frame with a per-frame budget, and the SSH stream is
+  // paused while the queue is big so memory stays bounded.
+  static const _frameBudget = 32 * 1024; // chars written per frame
+  static const _highWater = 1024 * 1024; // pause the socket above this
+  static const _lowWater = 256 * 1024; // resume below this
+  final _queue = StringBuffer();
+  String _carry = '';
+  bool _flushScheduled = false;
+  bool _paused = false;
+
+  void _enqueue(String data) {
+    if (data.isEmpty) return;
+    _queue.write(data);
+    if (!_paused && _carry.length + _queue.length > _highWater) {
+      _paused = true;
+      _out?.pause();
+      _err?.pause();
+    }
+    _scheduleFlush();
+  }
+
+  void _scheduleFlush() {
+    if (_flushScheduled) return;
+    _flushScheduled = true;
+    // ~one frame. A Timer (not a frame callback) so output keeps draining
+    // while the app is in the background and in tests.
+    Timer(const Duration(milliseconds: 16), _flush);
+  }
+
+  void _flush() {
+    _flushScheduled = false;
+    if (_queue.isNotEmpty) {
+      _carry += _queue.toString();
+      _queue.clear();
+    }
+    if (_carry.isEmpty) return;
+    var n = _carry.length <= _frameBudget ? _carry.length : _frameBudget;
+    // Don't split a UTF-16 surrogate pair across frames.
+    if (n < _carry.length) {
+      final u = _carry.codeUnitAt(n - 1);
+      if (u >= 0xD800 && u <= 0xDBFF) n--;
+    }
+    terminal.write(_carry.substring(0, n));
+    _carry = _carry.substring(n);
+    if (_paused && _carry.length < _lowWater) {
+      _paused = false;
+      _out?.resume();
+      _err?.resume();
+    }
+    if (_carry.isNotEmpty) _scheduleFlush();
+  }
+
+  /// Local status lines (connect/disconnect notices) go through the same
+  /// queue so they never jump ahead of server output.
+  void notice(String text) => _enqueue(text);
+
   String get title => host.label.isEmpty ? host.host : host.label;
 
   void _set(ConnState s, [String? e]) {
@@ -81,6 +142,8 @@ class TermSession extends ChangeNotifier {
   Future<void> _dispose() async {
     await _out?.cancel();
     await _err?.cancel();
+    _out = _err = null;
+    _paused = false;
     shell?.close();
     shell = null;
   }
@@ -175,6 +238,7 @@ class SshManager extends ChangeNotifier {
       socket,
       username: h.username,
       identities: identities,
+      algorithms: sshAlgorithms,
       keepAliveInterval: const Duration(seconds: 15),
       handshakeTimeout: const Duration(seconds: 15),
       authTimeout: const Duration(seconds: 60),
@@ -229,7 +293,7 @@ class SshManager extends ChangeNotifier {
     }
     for (final s in sessions.where((s) => s.host.id == hostId)) {
       if (s.state == ConnState.ready) {
-        s.terminal.write('\r\n\x1b[38;5;203m● koneksi putus\x1b[0m\r\n');
+        s.notice('\r\n\x1b[38;5;203m● koneksi putus\x1b[0m\r\n');
         s._set(ConnState.closed);
       }
     }
@@ -250,14 +314,14 @@ class SshManager extends ChangeNotifier {
 
   Future<void> reconnect(TermSession s) async {
     await s._dispose();
-    s.terminal.write('\r\n\x1b[38;5;45m↻ nyambung ulang…\x1b[0m\r\n');
+    s.notice('\r\n\x1b[38;5;45m↻ nyambung ulang…\x1b[0m\r\n');
     _startShell(s);
   }
 
   Future<void> _startShell(TermSession s) async {
     final h = s.host;
     s._set(ConnState.connecting);
-    s.terminal.write('\x1b[38;5;99m⚡ satsh\x1b[0m → \x1b[1m${h.address}\x1b[0m\r\n');
+    s.notice('\x1b[38;5;99m⚡ satsh\x1b[0m → \x1b[1m${h.address}\x1b[0m\r\n');
     try {
       final c = await client(h);
       final shell = await c.shell(
@@ -270,8 +334,8 @@ class SshManager extends ChangeNotifier {
       s.shell = shell;
       final dec1 = const Utf8Decoder(allowMalformed: true);
       final dec2 = const Utf8Decoder(allowMalformed: true);
-      s._out = shell.stdout.cast<List<int>>().transform(dec1).listen(s.terminal.write);
-      s._err = shell.stderr.cast<List<int>>().transform(dec2).listen(s.terminal.write);
+      s._out = shell.stdout.cast<List<int>>().transform(dec1).listen(s._enqueue);
+      s._err = shell.stderr.cast<List<int>>().transform(dec2).listen(s._enqueue);
       s.terminal.onOutput = s.sendInput;
       s.terminal.onResize = (w, hgt, pw, ph) {
         if (s.shell == shell) shell.resizeTerminal(w, hgt, pw, ph);
@@ -283,13 +347,13 @@ class SshManager extends ChangeNotifier {
       }
       shell.done.whenComplete(() {
         if (s.shell == shell && s.state == ConnState.ready) {
-          s.terminal.write('\r\n\x1b[38;5;245m● sesi selesai\x1b[0m\r\n');
+          s.notice('\r\n\x1b[38;5;245m● sesi selesai\x1b[0m\r\n');
           s._set(ConnState.closed);
         }
       }).ignore();
     } catch (e) {
       final msg = _friendly(e);
-      s.terminal.write('\r\n\x1b[38;5;203m✕ $msg\x1b[0m\r\n');
+      s.notice('\r\n\x1b[38;5;203m✕ $msg\x1b[0m\r\n');
       s._set(ConnState.failed, msg);
     }
   }
@@ -384,6 +448,21 @@ class SshManager extends ChangeNotifier {
     return s.replaceFirst('Exception: ', '');
   }
 }
+
+/// dartssh2 prefers AES-GCM, but its pure-Dart GCM runs at ~0.5 MB/s and
+/// blocks the event loop for seconds under load (measured against satshd:
+/// GCM 0.56 MB/s / 5–10 s stalls, AES-CTR ~12 MB/s / <0.1 s stalls). Since
+/// Dart runs on Android's main thread, those stalls were the force-closes in
+/// the terminal, the video player and downloads. CTR (+ ETM MAC) first,
+/// ChaCha20 next, GCM only as a last resort for servers that offer nothing
+/// else.
+final sshAlgorithms = SSHAlgorithms(cipher: const [
+  SSHCipherType.aes128ctr,
+  SSHCipherType.aes256ctr,
+  SSHCipherType.chacha20poly1305,
+  SSHCipherType.aes128gcm,
+  SSHCipherType.aes256gcm,
+]);
 
 List<SSHKeyPair> _parseKey((String, String?) a) =>
     SSHKeyPair.fromPem(a.$1, (a.$2 == null || a.$2!.isEmpty) ? null : a.$2);

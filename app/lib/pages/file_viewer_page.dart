@@ -5,15 +5,19 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../media_server.dart';
+import '../sftp_download.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-const maxEditBytes = 2 * 1024 * 1024;
+// A plain TextField gets sluggish well before 2 MB (every keystroke relayouts
+// the whole text), so cap editing at 1 MB.
+const maxEditBytes = 1024 * 1024;
 
 /// Opens a remote file: editor for text, preview+editor for MD/HTML,
 /// streaming player for video/audio, zoomable image viewer.
@@ -40,6 +44,8 @@ class _FileViewerPageState extends State<FileViewerPage> with SingleTickerProvid
   late final TabController _tabs = TabController(length: 2, vsync: this);
   WebViewController? _web;
   int _rev = 0; // bump to refresh previews after save
+  double? _dl; // download progress, null = idle
+  Completer<void>? _dlCancel;
 
   String get name => widget.path.split('/').last;
   bool get isTextual => kind == FileKind.text || kind == FileKind.markdown || kind == FileKind.html;
@@ -52,8 +58,39 @@ class _FileViewerPageState extends State<FileViewerPage> with SingleTickerProvid
     _init();
   }
 
+  Future<void> _download() async {
+    if (_dlCancel != null) {
+      _dlCancel!.complete();
+      return;
+    }
+    final total = widget.size ?? 0;
+    final pub = await SftpDownload.publicDir();
+    final dir = pub ?? await SftpDownload.privateDir();
+    final cancel = _dlCancel = Completer<void>();
+    setState(() => _dl = 0);
+    try {
+      final out = await SftpDownload.fetch(widget.sftp, widget.path, SftpDownload.freeName(dir, name),
+          cancel: cancel.future, onProgress: (n) {
+        if (mounted && total > 0) setState(() => _dl = n / total);
+      });
+      if (!mounted) return;
+      if (pub != null) {
+        toast('Kesimpen di Download/satsh/${out.uri.pathSegments.last}');
+      } else {
+        toast('Izin file belum ada — pilih tempat simpennya ya');
+        await SharePlus.instance.share(ShareParams(files: [XFile(out.path)]));
+      }
+    } catch (e) {
+      if (mounted) toast(e == 'Dibatalin' ? 'Download dibatalin' : 'Gagal download: $e', error: e != 'Dibatalin');
+    } finally {
+      _dlCancel = null;
+      if (mounted) setState(() => _dl = null);
+    }
+  }
+
   @override
   void dispose() {
+    if (_dlCancel?.isCompleted == false) _dlCancel!.complete();
     if (_base != null) MediaServer.i.unmount(_base!);
     _tabs.dispose();
     super.dispose();
@@ -63,7 +100,7 @@ class _FileViewerPageState extends State<FileViewerPage> with SingleTickerProvid
     try {
       _base = await MediaServer.i.mount(widget.sftp);
       if (isTextual) {
-        if ((widget.size ?? 0) > maxEditBytes) throw 'File kegedean buat diedit (> 2 MB)';
+        if ((widget.size ?? 0) > maxEditBytes) throw 'File kegedean buat diedit (> 1 MB) — download aja';
         final f = await widget.sftp.open(widget.path);
         final bytes = await f.readBytes();
         await f.close();
@@ -150,6 +187,17 @@ class _FileViewerPageState extends State<FileViewerPage> with SingleTickerProvid
                 onPressed: dirty && !_saving ? _save : null,
               ),
             ],
+            IconButton(
+              tooltip: _dl == null ? 'Download ke HP' : 'Batalin download',
+              icon: _dl == null
+                  ? const Icon(Icons.download_rounded)
+                  : SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(value: _dl == 0 ? null : _dl, strokeWidth: 2.5, color: C.cyan),
+                    ),
+              onPressed: _download,
+            ),
             if (_base != null && (!isTextual || kind == FileKind.html))
               IconButton(
                 tooltip: 'Buka di browser',
@@ -338,6 +386,7 @@ class _MediaPlayerState extends State<MediaPlayer> with SingleTickerProviderStat
   String? _err;
   bool _ui = true;
   Timer? _hide;
+  double? _drag; // slider position while the thumb is held
 
   @override
   void initState() {
@@ -397,16 +446,25 @@ class _MediaPlayerState extends State<MediaPlayer> with SingleTickerProviderStat
             inactiveTrackColor: Colors.white24,
           ),
           child: Slider(
-            value: dur.inMilliseconds == 0 ? 0 : pos.inMilliseconds.clamp(0, dur.inMilliseconds).toDouble(),
+            value: dur.inMilliseconds == 0
+                ? 0
+                : (_drag ?? pos.inMilliseconds.toDouble()).clamp(0, dur.inMilliseconds.toDouble()),
             max: dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds.toDouble(),
-            onChanged: (x) {
+            // Seek once on release: seeking on every drag event made the
+            // player open (and drop) a new HTTP range request per frame.
+            onChanged: (x) => setState(() {
+              _drag = x;
+              _hide?.cancel();
+            }),
+            onChangeEnd: (x) {
+              _drag = null;
               _c.seekTo(Duration(milliseconds: x.round()));
               _scheduleHide();
             },
           ),
         ),
         Row(children: [
-          Text(_t(pos), style: const TextStyle(fontFamily: monoFont, fontSize: 12, color: Colors.white70)),
+          Text(_t(_drag != null ? Duration(milliseconds: _drag!.round()) : pos), style: const TextStyle(fontFamily: monoFont, fontSize: 12, color: Colors.white70)),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.replay_10_rounded, color: Colors.white),

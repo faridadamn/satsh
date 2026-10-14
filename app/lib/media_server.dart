@@ -90,7 +90,9 @@ class MediaServer {
       }
       final f = await sftp.open(path);
       try {
-        await res.addStream(f.read(offset: start, length: length));
+        // Small, bounded read-ahead: ExoPlayer opens and drops ranges a lot, and
+        // each stream should hold at most ~512 KB in flight.
+        await res.addStream(f.read(offset: start, length: length, chunkSize: 32 * 1024, maxPendingRequests: 16));
       } finally {
         await f.close();
       }

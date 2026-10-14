@@ -448,6 +448,7 @@ class PairClient {
     final client = SSHClient(
       socket,
       username: 'satsh',
+      algorithms: sshAlgorithms,
       onVerifyHostKey: (type, fp) {
         hostKeyType = type;
         return code.fingerprint.isEmpty || utf8.decode(fp) == code.fingerprint;
