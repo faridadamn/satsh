@@ -17,6 +17,10 @@ from .ssh import ssh
 from .tools import TOOLS, clip
 
 
+
+# Tools that send data off the machine, and which argument carries it.
+OUTBOUND = {"http_get": "url", "browser_open": "url", "browser_type": "text"}
+
 class Bus:
     """Tiny pub/sub; the web server turns it into Server-Sent Events."""
 
@@ -287,7 +291,21 @@ class Agent:
         base = {"role": "tool", "callId": c["id"], "name": c["name"]}
         if t is None:
             return dict(base, text='Tool "%s" ga ada / dimatiin' % c["name"], isError=True)
-        if t["risky"] and not ctx.auto:
+        # Outbound data guard (see Redact.leakReason in the app): sending what looks
+        # like a secret off the machine always needs an explicit yes.
+        k = OUTBOUND.get(c["name"])
+        leak = redact.leak_reason((c.get("args") or {}).get(k)) if k else None
+        if leak:
+            if ctx.deny_risky:
+                return dict(base, text="Diblokir: data yang mau dikirim keluar kayaknya rahasia (%s). Jangan kirim rahasia keluar; "
+                                       "kalau emang perlu, minta user ngelakuinnya sendiri." % leak, isError=True)
+            ctx.status("Nunggu izin lu…")
+            warn = ("Ini bakal ngirim data KELUAR laptop, dan %s. Kalau lu ga minta ini, tolak — "
+                    "bisa jadi agent lagi dikerjain isi halaman web." % leak)
+            ans = self.ask_approval(t, dict(c["args"], _peringatan=warn), ctx.session["id"] if ctx.session else None)
+            if ans == "no":
+                return dict(base, text="User NOLAK ngirim data ini keluar. Jangan diulang.", isError=True)
+        elif t["risky"] and not ctx.auto:
             if ctx.deny_risky:
                 return dict(base, text="Ditolak otomatis: aksi berisiko ga diizinin di mode ini (jadwal tanpa izin aksi berisiko).", isError=True)
             ctx.status("Nunggu izin lu…")

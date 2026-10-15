@@ -61,11 +61,41 @@ _RULES = [
 ]
 
 
+def leak_reason(s):
+    """Why s (a URL / text the agent is about to send OUT) looks like it carries a
+    secret, or None. Independent of `enabled`: guards against prompt-injected
+    exfiltration, not a display setting. Same as Redact.leakReason in the app."""
+    if not s or not isinstance(s, str):
+        return None
+    try:
+        from urllib.parse import unquote_plus, urlsplit, parse_qsl
+        t = unquote_plus(s)
+    except Exception:  # noqa
+        t = s
+    for k in _known:
+        if k in t:
+            return "ada password / key yang lu simpen di satsh"
+    for rx, _ in _RULES[:-1]:  # all but the IPv4 rule
+        if rx.search(t):
+            return "ada yang mirip private key / token / password"
+    try:
+        u = urlsplit(s)
+        if u.scheme:
+            parts = [p for p in u.path.split("/")] + [v for _, v in parse_qsl(u.query, keep_blank_values=True)] + [u.fragment]
+            longest = max((len(unquote_plus(p)) for p in parts), default=0)
+            if longest > 300:
+                return "URL-nya bawa data panjang (%d karakter) — bisa jadi isi file yang mau dikirim keluar" % longest
+    except Exception:  # noqa
+        pass
+    return None
+
+
 _SECRET_KEY = re.compile(r"(pass(word|wd|phrase)?|pwd|secret|token|api[_\-]?key|apikey|private[_\-]?key|authorization|credential)$", re.I)
 
 
-def text(s):
-    if not enabled or not s or not isinstance(s, str):
+def text(s, force=False):
+    """force=True ignores the Settings switch — for text that leaves the machine (error reports)."""
+    if (not enabled and not force) or not s or not isinstance(s, str):
         return s
     out = s
     for k in _known:

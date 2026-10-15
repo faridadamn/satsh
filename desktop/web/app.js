@@ -143,11 +143,13 @@ function showApproval(p) {
   if (document.getElementById("ap-" + p.id)) return;
   modal((close) => {
     const ans = async (a) => { await api("/api/approve", { id: p.id, answer: a }); close(); };
+    const args = Object.assign({}, p.args), warn = args._peringatan; delete args._peringatan;
     return [h("div", { id: "ap-" + p.id, class: "row" }, h("div", { class: "avatar", style: { background: "rgba(251,191,36,.18)", color: "var(--amber)" } }, icon("shield")),
-      h("div", {}, h("h2", { style: { margin: 0 } }, "Agent minta izin"), h("div", { class: "mono muted small" }, p.tool))),
-    h("pre", {}, JSON.stringify(p.args, null, 2)),
+      h("div", {}, h("h2", { style: { margin: 0, color: warn ? "var(--red)" : null } }, warn ? "Awas: data mau keluar" : "Agent minta izin"), h("div", { class: "mono muted small" }, p.tool))),
+    warn ? h("div", { class: "card", style: { borderColor: "var(--red)", color: "var(--text)" } }, warn) : null,
+    h("pre", {}, JSON.stringify(args, null, 2)),
     h("div", { class: "row" }, h("button", { class: "btn danger", style: { flex: 1 }, onclick: () => ans("no") }, "Tolak"), h("button", { class: "btn primary", style: { flex: 2 }, onclick: () => ans("yes") }, icon("check"), "Izinin")),
-    h("button", { class: "btn ghost", style: { width: "100%", marginTop: "6px", color: "var(--muted)" }, onclick: () => ans("all") }, "Izinin semua di chat ini")];
+    warn ? null : h("button", { class: "btn ghost", style: { width: "100%", marginTop: "6px", color: "var(--muted)" }, onclick: () => ans("all") }, "Izinin semua di chat ini")];
   }).then(() => { });
   const last = $("#modals").lastChild; if (last) last.querySelector(".modal").dataset.sticky = "1";
 }

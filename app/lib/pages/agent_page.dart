@@ -30,7 +30,9 @@ import 'settings_page.dart';
 
 Future<String> askApproval(BuildContext context, AgentTool tool, Map<String, dynamic> args) async {
   HapticFeedback.heavyImpact();
-  final pretty = const JsonEncoder.withIndent('  ').convert(Redact.args(args));
+  final warn = args[AgentController.peringatanKey] as String?;
+  final shown = Map<String, dynamic>.from(args)..remove(AgentController.peringatanKey);
+  final pretty = const JsonEncoder.withIndent('  ').convert(Redact.args(shown));
   final r = await showSheet<String>(
       useSafeArea: true,
     context: context,
@@ -51,11 +53,24 @@ Future<String> askApproval(BuildContext context, AgentTool tool, Map<String, dyn
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Agent minta izin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(warn == null ? 'Agent minta izin' : 'Awas: data mau keluar HP',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: warn == null ? null : C.red)),
                 Text(tool.spec.name, style: TextStyle(color: C.muted, fontFamily: monoFont, fontSize: 12)),
               ]),
             ),
           ]),
+          if (warn != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: C.red.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: C.red.withValues(alpha: 0.4)),
+              ),
+              child: Text(warn, style: const TextStyle(fontSize: 13, height: 1.4)),
+            ),
+          ],
           const SizedBox(height: 14),
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * 0.4),
@@ -80,7 +95,8 @@ Future<String> askApproval(BuildContext context, AgentTool tool, Map<String, dyn
             const SizedBox(width: 10),
             Expanded(flex: 2, child: GradientButton(label: 'Izinin', icon: Icons.check_rounded, onTap: () => Navigator.pop(c, 'yes'))),
           ]),
-          TextButton(onPressed: () => Navigator.pop(c, 'all'), child: Text('Izinin semua di chat ini', style: TextStyle(color: C.muted))),
+          if (warn == null)
+            TextButton(onPressed: () => Navigator.pop(c, 'all'), child: Text('Izinin semua di chat ini', style: TextStyle(color: C.muted))),
         ]),
       ),
     ),

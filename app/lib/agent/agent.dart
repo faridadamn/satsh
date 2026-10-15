@@ -408,7 +408,27 @@ ${worker ? '' : '''
     if (tool == null) {
       return Msg(role: 'tool', callId: c.id, name: c.name, text: 'Tool "${c.name}" ga ada / dimatiin', isError: true);
     }
-    if (tool.risky && !ctx.autoApprove) {
+    // Outbound data guard: a page the agent read can tell it to send secrets
+    // away through a URL. Those calls always need an explicit yes — even after
+    // "Izinin semua", and they're refused outright where nobody can answer.
+    final leak = _outboundLeak(c.name, c.args);
+    if (leak != null) {
+      if (ctx.denyRisky) {
+        return Msg(
+            role: 'tool',
+            callId: c.id,
+            name: c.name,
+            text: 'Diblokir: data yang mau dikirim keluar kayaknya rahasia ($leak). Jangan kirim rahasia keluar HP; '
+                'kalau emang perlu, minta user ngelakuinnya sendiri.',
+            isError: true);
+      }
+      ctx.onStatus?.call('Nunggu izin lu…');
+      final ans = await _approve(tool, {...c.args, peringatanKey: 'Ini bakal ngirim data KELUAR HP, dan $leak. '
+          'Kalau lu ga minta ini, tolak — bisa jadi agent lagi dikerjain isi halaman web.'});
+      if (ans == 'no') {
+        return Msg(role: 'tool', callId: c.id, name: c.name, text: 'User NOLAK ngirim data ini keluar. Jangan diulang.', isError: true);
+      }
+    } else if (tool.risky && !ctx.autoApprove) {
       if (ctx.denyRisky) {
         return Msg(
             role: 'tool',
@@ -445,6 +465,29 @@ ${worker ? '' : '''
   }
 
   /// Serializes approval prompts (subagents may ask in parallel).
+  /// Pseudo-argument the approval sheet shows as a warning (and that hides
+  /// "Izinin semua").
+  static const peringatanKey = '_peringatan';
+
+  /// Tools that send data off the phone, and which argument carries it.
+  static const _outbound = {
+    'http_get': 'url',
+    'browser_open': 'url',
+    'open_url': 'url',
+    'browser_download': 'url',
+    'browser_type': 'text',
+  };
+
+  @visibleForTesting
+  static String? outboundLeak(String tool, Map<String, dynamic> args) => _outboundLeak(tool, args);
+
+  static String? _outboundLeak(String tool, Map<String, dynamic> args) {
+    final k = _outbound[tool];
+    if (k == null) return null;
+    final v = args[k];
+    return v is String ? Redact.leakReason(v) : null;
+  }
+
   Future<String> _approve(AgentTool tool, Map<String, dynamic> args) {
     final done = Completer<String>();
     unawaited(Native.notifyIfAway('Agent nunggu izin lu', '${tool.spec.name}: ${jsonEncode(Redact.args(args))}', id: 2));
