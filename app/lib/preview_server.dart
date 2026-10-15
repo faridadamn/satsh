@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 /// Serves one folder on the phone over http://127.0.0.1 so the agent browser
 /// can open (and screenshot) web pages the agent just built.
@@ -8,6 +9,8 @@ class PreviewServer {
 
   HttpServer? _srv;
   Directory? _root;
+  // Random path prefix so other apps on the phone can't read the folder.
+  final String _token = List.generate(24, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
 
   static const _types = {
     'html': 'text/html; charset=utf-8',
@@ -39,7 +42,7 @@ class PreviewServer {
     _root = Directory(dir.absolute.path);
     final s = _srv ??= await HttpServer.bind(InternetAddress.loopbackIPv4, 0)
       ..listen(_handle);
-    return 'http://127.0.0.1:${s.port}/';
+    return 'http://127.0.0.1:${s.port}/$_token/';
   }
 
   Future<void> _handle(HttpRequest req) async {
@@ -47,7 +50,12 @@ class PreviewServer {
     try {
       final root = _root;
       if (root == null) throw const FileSystemException('belum ada folder');
-      var rel = Uri.decodeComponent(req.uri.path);
+      final segs0 = req.uri.pathSegments;
+      if ((req.headers.host ?? '') != '127.0.0.1' || segs0.isEmpty || segs0.first != _token) {
+        res.statusCode = HttpStatus.forbidden;
+        return;
+      }
+      var rel = '/${segs0.skip(1).join('/')}${req.uri.path.endsWith('/') ? '/' : ''}';
       if (rel.endsWith('/')) rel = '${rel}index.html';
       final segs = rel.split('/').where((e) => e.isNotEmpty && e != '.').toList();
       if (segs.contains('..')) {
