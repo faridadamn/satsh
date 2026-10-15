@@ -2,7 +2,17 @@
 
 SSH client Android yang "gw banget": terminal, SFTP, tunnel, agent AI di dalam aplikasi, Mode Server (HP lain bisa SSH ke HP ini), plus versi desktop buat Windows 7 / 10 / 11.
 
-Versi app: **2.7.0** · desktop **2.4.7**
+Versi app: **2.7.1** · desktop **2.4.8**
+
+## Baru di 2.7.1 (hardening)
+
+- **Satpam data keluar (agent)**: kalau agent mau buka URL / ngetik teks yang kayaknya bawa rahasia (password tersimpan, private key, token, API key) atau data panjang mencurigakan, wajib minta izin dulu — walau udah "Izinin semua". Di misi/jadwal langsung diblokir. Nutup trik "baca ~/.ssh/id_rsa terus buka evil.com/?k=…" dari halaman web jahat. Desktop juga.
+- **Preview HTML dari server di-sandbox** (CSP, origin opak): JavaScript di halaman ga bisa lagi baca file lain di server lewat media server lokal. Media server cuma nerima GET/HEAD dari `127.0.0.1` (anti DNS rebinding), token 128-bit
+- **Backup "ikutin semua" dikunci password** (PBKDF2-SHA256 310k + XSalsa20-Poly1305). Backup lama tetep bisa di-restore. Restore ga pernah ngidupin "izinin aksi berisiko otomatis" dan cuma nulis slot rahasia punya satsh
+- **Mode Server**: handshake/login wajib kelar dalam 30 dtk, maks 16 koneksi yang belum login (anti banjir koneksi dari Wi-Fi yang sama); QR pairing tanpa sidik jari server ditolak
+- Backup otomatis Android (Google Drive & pindah HP) dimatiin — data host, known_hosts & chat agent ga ikut ke cloud; pakai backup satsh
+- Laporan error selalu disensor walau "Sensor data sensitif" dimatiin
+- Preview web agent pakai token acak; izin "Akses semua file" cuma ditanya sekali per buka app; file sementara buat Share dibersihin otomatis
 
 ## Baru di 2.7.0
 

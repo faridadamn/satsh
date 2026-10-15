@@ -16,6 +16,10 @@ import 'package:permission_handler/permission_handler.dart';
 class SftpDownload {
   SftpDownload._();
 
+  /// Asked once per app run: on Android 11+ the request opens system Settings,
+  /// so asking on every download after a "no" would be a nag.
+  static bool _asked = false;
+
   /// Public Download/satsh on the phone, or null when we can't write there.
   static Future<Directory?> publicDir({bool ask = true}) async {
     if (!Platform.isAndroid) return null;
@@ -23,7 +27,10 @@ class SftpDownload {
       final sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
       final perm = sdk >= 30 ? Permission.manageExternalStorage : Permission.storage;
       var st = await perm.status;
-      if (!st.isGranted && ask) st = await perm.request();
+      if (!st.isGranted && ask && !_asked) {
+        _asked = true;
+        st = await perm.request();
+      }
       if (!st.isGranted) return null;
       final d = Directory('/storage/emulated/0/Download/satsh');
       await d.create(recursive: true);
@@ -38,6 +45,13 @@ class SftpDownload {
     final base = Platform.isAndroid ? await getExternalStorageDirectory() : null;
     final d = Directory('${(base ?? await getApplicationDocumentsDirectory()).path}/Download');
     await d.create(recursive: true);
+    // These only exist to be handed to the share sheet: drop day-old ones.
+    final old = DateTime.now().subtract(const Duration(days: 1));
+    for (final e in d.listSync().whereType<File>()) {
+      try {
+        if (e.lastModifiedSync().isBefore(old)) e.deleteSync();
+      } catch (_) {}
+    }
     return d;
   }
 
