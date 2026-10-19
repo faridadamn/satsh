@@ -9,7 +9,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'agent_page.dart' show MessageBody;
-import 'markas_page.dart' show shellTab;
+import '../nav.dart';
 
 /// Saved results of the manual tests (Store 'diagManual' = {at, r: {id: bool}}), valid for 24 h.
 Map<String, bool?> savedManual() {
@@ -169,7 +169,7 @@ class _CekHpPageState extends State<CekHpPage> {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.popUntil(context, (r) => r.isFirst);
-                    shellTab.value = 1;
+                    shellTab.value = agentTabIndex;
                     AgentController.i.send('Jalanin diagnosa_hp (logs=crash kalau bisa), terus analisa: layak beli / harga wajar buat kondisi ini / apa aja yang harus dicek atau ditanyain ke penjual.');
                   },
                   icon: const Icon(Icons.auto_awesome_rounded, size: 18),

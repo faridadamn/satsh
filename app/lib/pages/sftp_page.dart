@@ -1,12 +1,14 @@
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../media_server.dart';
 import '../models.dart';
+import '../sftp_download.dart';
 import 'file_viewer_page.dart';
 import '../ssh_manager.dart';
 import '../theme.dart';
@@ -24,6 +26,7 @@ class _SftpPageState extends State<SftpPage> {
   SftpClient? _sftp;
   String _path = '';
   List<SftpName> _items = [];
+  Set<String> _linkDirs = {}; // symlinks that point at a directory
   bool _loading = true;
   String? _error;
   bool _showHidden = false;
@@ -38,6 +41,7 @@ class _SftpPageState extends State<SftpPage> {
 
   @override
   void dispose() {
+    if (_cancel?.isCompleted == false) _cancel!.complete();
     _sftp?.close();
     super.dispose();
   }
@@ -60,13 +64,24 @@ class _SftpPageState extends State<SftpPage> {
     try {
       final list = await _sftp!.listdir(path);
       list.removeWhere((e) => e.filename == '.' || e.filename == '..');
+      // Symlinked folders (~/storage on Termux, /var/www links…) used to show
+      // up as files and couldn't be opened. Resolve them (stat follows links).
+      final base = path == '/' ? '' : path;
+      final linkDirs = <String>{};
+      await Future.wait(list.where((e) => e.attr.isSymbolicLink).take(200).map((e) async {
+        try {
+          if ((await _sftp!.stat('$base/${e.filename}')).isDirectory) linkDirs.add(e.filename);
+        } catch (_) {} // dangling link
+      }));
+      bool isDir(SftpName e) => e.attr.isDirectory || linkDirs.contains(e.filename);
       list.sort((a, b) {
-        final d = (b.attr.isDirectory ? 1 : 0) - (a.attr.isDirectory ? 1 : 0);
+        final d = (isDir(b) ? 1 : 0) - (isDir(a) ? 1 : 0);
         return d != 0 ? d : a.filename.toLowerCase().compareTo(b.filename.toLowerCase());
       });
       setState(() {
         _path = path;
         _items = list;
+        _linkDirs = linkDirs;
         _loading = false;
         _error = null;
       });
@@ -76,6 +91,8 @@ class _SftpPageState extends State<SftpPage> {
     }
   }
 
+  bool _isDir(SftpName f) => f.attr.isDirectory || _linkDirs.contains(f.filename);
+
   String _join(String name) => _path == '/' ? '/$name' : '$_path/$name';
 
   String get _parent {
@@ -84,52 +101,75 @@ class _SftpPageState extends State<SftpPage> {
     return i <= 0 ? '/' : _path.substring(0, i);
   }
 
+  Completer<void>? _cancel;
+
   Future<void> _download(SftpName f) async {
+    if (_cancel != null) {
+      toast('Tunggu download yang lagi jalan beres dulu', error: true);
+      return;
+    }
+    final total = f.attr.size ?? 0;
+    final pub = await SftpDownload.publicDir();
+    final dir = pub ?? await SftpDownload.privateDir();
+    final dest = SftpDownload.freeName(dir, f.filename);
+    final cancel = _cancel = Completer<void>();
+    setState(() {
+      _progressLabel = 'Download ${f.filename}';
+      _progress = total > 0 ? 0 : null;
+    });
     try {
-      final total = f.attr.size ?? 0;
-      setState(() {
-        _progressLabel = 'Download ${f.filename}';
-        _progress = 0;
+      final out = await SftpDownload.fetch(_sftp!, _join(f.filename), dest, cancel: cancel.future, onProgress: (n) {
+        if (mounted && total > 0) setState(() => _progress = n / total);
       });
-      final file = await _sftp!.open(_join(f.filename));
-      final b = BytesBuilder(copy: false);
-      await for (final chunk in file.read(onProgress: (n) {
-        if (total > 0) setState(() => _progress = n / total);
-      })) {
-        b.add(chunk);
+      if (!mounted) return;
+      if (pub != null) {
+        toast('Kesimpen di Download/satsh/${out.uri.pathSegments.last}');
+      } else {
+        // No storage permission: offer it through the share sheet instead.
+        toast('Izin file belum ada — pilih tempat simpennya ya');
+        await SharePlus.instance.share(ShareParams(files: [XFile(out.path)]));
       }
-      await file.close();
-      setState(() => _progressLabel = null);
-      final uri = await FilePicker.saveFile(fileName: f.filename, bytes: b.takeBytes());
-      if (uri != null) toast('Kesimpen: ${f.filename}');
     } catch (e) {
-      setState(() => _progressLabel = null);
-      toast('Gagal download: $e', error: true);
+      if (mounted) toast(e == 'Dibatalin' ? 'Download dibatalin' : 'Gagal download: $e', error: e != 'Dibatalin');
+    } finally {
+      _cancel = null;
+      if (mounted) setState(() => _progressLabel = null);
     }
   }
 
   Future<void> _upload() async {
     final files = await FilePicker.pickFiles();
     if (files.isEmpty) return;
+    var ok = 0;
     for (final pf in files) {
       try {
         final size = await pf.length() ?? 0;
         setState(() {
           _progressLabel = 'Upload ${pf.name}';
-          _progress = 0;
+          _progress = size > 0 ? 0 : null;
         });
+        var tick = DateTime.fromMillisecondsSinceEpoch(0);
         final remote = await _sftp!.open(_join(pf.name),
             mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate);
-        await remote.write(pf.readAsByteStream(), onProgress: (n) {
-          if (size > 0) setState(() => _progress = n / size);
-        });
-        await remote.close();
+        try {
+          await remote.write(pf.readAsByteStream(), onProgress: (n) {
+            // ~10 UI updates a second instead of one per 32 KB chunk.
+            final now = DateTime.now();
+            if (!mounted || size <= 0 || now.difference(tick).inMilliseconds < 100) return;
+            tick = now;
+            setState(() => _progress = n / size);
+          });
+        } finally {
+          await remote.close();
+        }
+        ok++;
       } catch (e) {
         toast('Gagal upload ${pf.name}: $e', error: true);
       }
     }
+    if (!mounted) return;
     setState(() => _progressLabel = null);
-    toast('Upload beres');
+    if (ok > 0) toast(ok == files.length ? 'Upload beres' : 'Upload beres $ok dari ${files.length} file');
     _open(_path);
   }
 
@@ -183,7 +223,7 @@ class _SftpPageState extends State<SftpPage> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           ),
-          if (!f.attr.isDirectory) ...[
+          if (!_isDir(f)) ...[
             ListTile(
               leading: const Icon(Icons.visibility_rounded),
               title: Text(switch (kindOf(f.filename)) {
@@ -207,7 +247,7 @@ class _SftpPageState extends State<SftpPage> {
                 },
               ),
           ],
-          if (!f.attr.isDirectory)
+          if (!_isDir(f))
             ListTile(
               leading: const Icon(Icons.download_rounded),
               title: const Text('Download ke HP'),
@@ -276,6 +316,7 @@ class _SftpPageState extends State<SftpPage> {
   }
 
   IconData _icon(SftpName f) {
+    if (_linkDirs.contains(f.filename)) return Icons.folder_special_rounded;
     if (f.attr.isDirectory) return Icons.folder_rounded;
     if (f.attr.isSymbolicLink) return Icons.link_rounded;
     final n = f.filename.toLowerCase();
@@ -330,8 +371,19 @@ class _SftpPageState extends State<SftpPage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('$_progressLabel  ${((_progress ?? 0) * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(fontSize: 12, color: C.muted)),
+                      Row(children: [
+                        Expanded(
+                          child: Text('$_progressLabel  ${((_progress ?? 0) * 100).toStringAsFixed(0)}%',
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: C.muted)),
+                        ),
+                        if (_cancel != null)
+                          GestureDetector(
+                            onTap: () {
+                              if (_cancel?.isCompleted == false) _cancel!.complete();
+                            },
+                            child: Text('Batal', style: TextStyle(fontSize: 12, color: C.red, fontWeight: FontWeight.w700)),
+                          ),
+                      ]),
                       const SizedBox(height: 6),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -391,9 +443,9 @@ class _SftpPageState extends State<SftpPage> {
                               child: _Row(
                                 icon: _icon(f),
                                 name: f.filename,
-                                meta: f.attr.isDirectory ? 'folder' : _size(f.attr.size),
-                                color: f.attr.isDirectory ? C.violet : C.cyan,
-                                onTap: () => f.attr.isDirectory
+                                meta: _isDir(f) ? (f.attr.isSymbolicLink ? 'link folder' : 'folder') : _size(f.attr.size),
+                                color: _isDir(f) ? C.violet : C.cyan,
+                                onTap: () => _isDir(f)
                                     ? _open(_join(f.filename))
                                     : (kindOf(f.filename) == FileKind.other ? _menu(f) : _view(f)),
                                 onLong: () => _menu(f),

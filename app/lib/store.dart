@@ -91,9 +91,13 @@ class Store extends ChangeNotifier {
     merge<Snippet>(snippets, j['snippets'] ?? [], Snippet.fromJson, (e) => e.id);
     merge<Forward>(forwards, j['forwards'] ?? [], Forward.fromJson, (e) => e.id);
     knownHosts.addAll(Map<String, String>.from(j['known'] ?? {}));
-    cfg.addAll(Map<String, dynamic>.from(j['cfg'] ?? {}));
+    // "Run risky agent actions without asking" is never restored from a file:
+    // the user turns it on themselves, on this phone.
+    cfg.addAll(Map<String, dynamic>.from(j['cfg'] ?? {})..remove('autoApprove'));
     for (final e in Map<String, String>.from(j['secrets'] ?? {}).entries) {
+      if (!_secretPrefixes.any(e.key.startsWith)) continue; // only satsh's own slots
       await _secure.write(key: e.key, value: e.value);
+      Redact.learn([e.value]);
     }
     _save('hosts', hosts.map((e) => e.toJson()));
     _save('snippets', snippets.map((e) => e.toJson()));
@@ -103,6 +107,8 @@ class Store extends ChangeNotifier {
     notifyListeners();
     return (j['hosts'] as List?)?.length ?? 0;
   }
+
+  static const _secretPrefixes = ['pw_', 'key_', 'pp_', 'sec_'];
 
   Future<void> load() async {
     _p = await SharedPreferences.getInstance();

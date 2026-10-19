@@ -103,8 +103,12 @@ void main() {
   test('pair code survives round trip, rejects junk', () {
     expect(PairCode.parse('halo'), isNull);
     expect(PairCode.parse('satsh://pair/!!!'), isNull);
-    final enc = base64Url.encode(utf8.encode(jsonEncode({'t': 'abcdefgh12', 'n': 'x', 'p': 1}))).replaceAll('=', '');
-    expect(PairCode.parse('cek ini satsh://pair/$enc ya')!.token, 'abcdefgh12');
+    String code(Map m) => 'satsh://pair/${base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '')}';
+    final ok = {'t': 'abcdefgh12', 'n': 'x', 'p': 1, 'f': 'SHA256:abc'};
+    expect(PairCode.parse('cek ini ${code(ok)} ya')!.token, 'abcdefgh12');
+    // no pinned server key = can't verify the phone → rejected
+    expect(PairCode.parse(code({...ok}..remove('f'))), isNull);
+    expect(PairCode.parse(code({...ok, 'f': ''})), isNull);
   });
 
   test('stop kills server and relay', () async {

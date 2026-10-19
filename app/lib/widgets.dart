@@ -247,6 +247,64 @@ Future<String?> askText(BuildContext context, String title, {String initial = ''
   );
 }
 
+/// Hidden password entry. With [confirm], asks twice and needs 8+ characters.
+Future<String?> askPassword(BuildContext context, String title, {bool confirm = false, String hint = ''}) {
+  final a = TextEditingController(), b = TextEditingController();
+  String? err;
+  var show = false;
+  return showDialog<String>(
+    context: context,
+    builder: (c) => StatefulBuilder(
+      builder: (c, set) {
+        void submit() {
+          if (confirm && a.text.length < 8) return set(() => err = 'Minimal 8 karakter');
+          if (confirm && a.text != b.text) return set(() => err = 'Dua password-nya ga sama');
+          if (a.text.isEmpty) return;
+          Navigator.pop(c, a.text);
+        }
+
+        return AlertDialog(
+          title: Text(title),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (hint.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(hint, style: TextStyle(color: C.muted, fontSize: 13))),
+            TextField(
+              controller: a,
+              autofocus: true,
+              obscureText: !show,
+              enableSuggestions: false,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                suffixIcon: IconButton(
+                  icon: Icon(show ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                  onPressed: () => set(() => show = !show),
+                ),
+              ),
+              onSubmitted: (_) => confirm ? null : submit(),
+            ),
+            if (confirm) ...[
+              const SizedBox(height: 10),
+              TextField(
+                controller: b,
+                obscureText: !show,
+                enableSuggestions: false,
+                autocorrect: false,
+                decoration: const InputDecoration(labelText: 'Ulangi password'),
+                onSubmitted: (_) => submit(),
+              ),
+            ],
+            if (err != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(err!, style: const TextStyle(color: C.red, fontSize: 13))),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+            FilledButton(onPressed: submit, child: const Text('OK')),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 /// Dialog implementations for the SSH manager.
 class UiPrompts implements Prompts {
   @override

@@ -221,6 +221,7 @@ class PhoneServer extends ChangeNotifier {
   /// Creates a one-time token (10 min) and returns the pairing code
   /// (`satsh://pair/<base64>`) for the QR.
   Future<String> startPairing() async {
+    if ((fingerprint ?? '').isEmpty) throw 'Mode Server belum nyala — nyalain dulu baru bikin QR';
     const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
     final r = Random.secure();
     _token = List.generate(14, (_) => abc[r.nextInt(abc.length)]).join();
@@ -381,7 +382,8 @@ class PairCode {
       var b = m.group(1)!;
       b = b.padRight((b.length + 3) ~/ 4 * 4, '=');
       final j = jsonDecode(utf8.decode(base64Url.decode(b)));
-      if (j is! Map || j['t'] == null) return null;
+      // Token and pinned server key are both required (no key = can't verify the phone).
+      if (j is! Map || j['t'] == null || '${j['f'] ?? ''}'.isEmpty) return null;
       return PairCode(j.cast<String, dynamic>());
     } catch (_) {
       return null;
@@ -448,9 +450,12 @@ class PairClient {
     final client = SSHClient(
       socket,
       username: 'satsh',
+      algorithms: sshAlgorithms,
       onVerifyHostKey: (type, fp) {
         hostKeyType = type;
-        return code.fingerprint.isEmpty || utf8.decode(fp) == code.fingerprint;
+        // The QR pins the server key; without it anyone answering on that
+        // address could pose as the phone and get the pairing token.
+        return code.fingerprint.isNotEmpty && utf8.decode(fp) == code.fingerprint;
       },
       onPasswordRequest: () => code.token,
     );

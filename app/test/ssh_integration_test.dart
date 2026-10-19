@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/markas.dart';
 import 'package:satsh/models.dart';
 import 'package:satsh/ssh_manager.dart';
 import 'package:satsh/store.dart';
@@ -175,18 +174,5 @@ void main() {
     // ignore: avoid_print
     print('error shown: ${s.error}');
     expect(s.error, contains('ditolak'));
-  });
-
-  test('Markas: install over SFTP, then talk to it + Hermes', () async {
-    p.trust = true;
-    await Store.i.saveHost(pwHost, password: 'rahasia123');
-    final out = await Markas.i.install(pwHost, load: (n) async => File('../markas/$n').readAsString());
-    expect(out, contains('MARKAS_OK'));
-    expect(Markas.i.hostId, pwHost.id);
-    await Markas.i.run(['target', 'add', 'Tes dari HP', '--owner', 'satsh']);
-    await Markas.i.refresh();
-    expect(Markas.i.error, isNull);
-    expect((Markas.i.snap!['targets'] as List).map((t) => (t as Map)['title']), contains('Tes dari HP'));
-    if (out.contains('HERMES_CLI_OK')) expect(await Markas.i.askHermes('progress?'), contains('HERMES'));
   });
 }

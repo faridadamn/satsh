@@ -271,6 +271,13 @@ void main() {
     expect(tail.bodyBytes, data.sublist(499990));
     final html = await http.get(Uri.parse(MediaServer.urlFor(base, '/home/tester/site/')));
     expect(html.body, '<h1>hai</h1>');
+    // server HTML runs sandboxed (opaque origin: can't read other files via the mount)
+    expect(html.headers['content-security-policy'], startsWith('sandbox allow-scripts'));
+    expect(html.headers['content-security-policy'], isNot(contains('allow-same-origin')));
+    expect(full.headers['content-security-policy'], isNull);
+    // DNS rebinding / other verbs are refused
+    expect((await http.get(Uri.parse(url), headers: {'Host': 'evil.example'})).statusCode, 403);
+    expect((await http.post(Uri.parse(url))).statusCode, 403);
     expect((await http.get(Uri.parse(MediaServer.urlFor(base, '/nope')))).statusCode, 404);
     MediaServer.i.unmount(base);
     expect((await http.get(Uri.parse(url))).statusCode, 403);

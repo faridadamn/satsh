@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models.dart';
+import '../ssh_command.dart';
 import '../ssh_manager.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -33,6 +35,8 @@ class _HostEditPageState extends State<HostEditPage> {
   bool _obscure = true;
   bool _hasSavedPw = false;
   bool _hasSavedKey = false;
+  List<String> _notes = const [];
+  String? _filledFrom; // what the form got filled from (shown as a hint)
 
   bool get _isNew => widget.host == null;
 
@@ -43,6 +47,50 @@ class _HostEditPageState extends State<HostEditPage> {
       Store.i.password(h.id).then((v) => setState(() => _hasSavedPw = (v ?? '').isNotEmpty));
       Store.i.privateKey(h.id).then((v) => setState(() => _hasSavedKey = (v ?? '').isNotEmpty));
     }
+  }
+
+  /// Fills the form from a pasted `ssh …` / `mosh …` / `user@host:port` line.
+  bool _fill(String text, {bool quiet = false}) {
+    final r = SshCommand.parse(text);
+    if (r == null || r.host.isEmpty) {
+      if (!quiet) toast('Ga nemu host di situ. Contoh: ssh -p 2222 user@host', error: true);
+      return false;
+    }
+    setState(() {
+      _host.text = r.host;
+      _port.text = '${r.port ?? 22}';
+      if (r.user != null) _user.text = r.user!;
+      if (r.password != null) {
+        h.auth = 'password';
+        _pw.text = r.password!;
+      }
+      if (r.command != null && _startup.text.trim().isEmpty) _startup.text = r.command!;
+      if (r.notes.any((n) => n.contains('Ambil dari file'))) h.auth = 'key';
+      _notes = r.notes;
+      _filledFrom = '${r.user ?? _user.text}@${r.host}${(r.port ?? 22) == 22 ? '' : ':${r.port}'}';
+    });
+    HapticFeedback.lightImpact();
+    return true;
+  }
+
+  Future<void> _pasteCommand() async {
+    final clip = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+    if (clip.trim().isNotEmpty && _fill(clip, quiet: true)) return;
+    if (!mounted) return;
+    final typed = await askText(context, 'Tempel perintah SSH', hint: 'ssh -p 2222 user@host');
+    if (typed != null && typed.trim().isNotEmpty) _fill(typed);
+  }
+
+  /// Pasting a whole command into the host field splits it up.
+  void _onHostChanged(String v) {
+    if (!SshCommand.looksLikeCommand(v)) return;
+    final r = SshCommand.parse(v);
+    if (r == null || r.host.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _fill(v, quiet: true);
+      _host.selection = TextSelection.collapsed(offset: _host.text.length);
+    });
   }
 
   Future<void> _importKey() async {
@@ -97,6 +145,47 @@ class _HostEditPageState extends State<HostEditPage> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
+          const SizedBox(height: 16),
+          Pressable(
+            onTap: _pasteCommand,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: LinearGradient(colors: [C.violet.withValues(alpha: 0.18), C.cyan.withValues(alpha: 0.12)]),
+                border: Border.all(color: C.violet.withValues(alpha: 0.35)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.content_paste_go_rounded, color: C.cyan, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Tempel perintah SSH', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(_filledFrom == null ? 'mis. ssh -p 2222 user@host' : 'Keisi: $_filledFrom',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontFamily: monoFont, fontSize: 11.5, color: _filledFrom == null ? C.muted : C.cyan)),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+          if (_notes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (final n in _notes)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Padding(padding: EdgeInsets.only(top: 1), child: Icon(Icons.info_outline_rounded, size: 15, color: C.amber)),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(n, style: TextStyle(fontSize: 12.5, color: C.muted, height: 1.35))),
+                    ]),
+                  ),
+              ]),
+            ),
           _label2('Server'),
           TextField(controller: _label, decoration: const InputDecoration(hintText: 'Nama (mis. VPS, Laptop Leo)')),
           const SizedBox(height: 10),
@@ -107,6 +196,7 @@ class _HostEditPageState extends State<HostEditPage> {
                 controller: _host,
                 keyboardType: TextInputType.url,
                 autocorrect: false,
+                onChanged: _onHostChanged,
                 style: const TextStyle(fontFamily: monoFont),
                 decoration: const InputDecoration(hintText: 'IP / domain'),
               ),

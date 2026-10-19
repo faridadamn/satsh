@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'redact.dart';
 
-const appVersion = '2.6.0 (24)';
+const appVersion = '2.7.2 (27)';
 
 /// One captured error with enough context to find the bug.
 class ErrorEntry {
@@ -38,7 +38,7 @@ class ErrorEntry {
       b.writeln('  ${e.key}: ${e.value}');
     }
     if (stack.trim().isNotEmpty) b.writeln(stack.trim());
-    return Redact.text(b.toString()); // reports get shared — never leak keys/passwords
+    return Redact.text(b.toString(), force: true); // reports get shared — never leak keys/passwords, even with the sensor off
   }
 }
 

@@ -102,14 +102,27 @@ func main() {
 		}
 	}()
 
+	// At most this many connections may sit in the handshake / login phase at
+	// once. The port is open to the whole Wi-Fi, so without a cap anyone on it
+	// could pile up half-open connections until the phone runs out of memory.
+	preAuth := make(chan struct{}, 16)
 	for {
 		nc, err := ln.Accept()
 		if err != nil {
+			time.Sleep(100 * time.Millisecond) // don't spin on EMFILE etc.
 			continue
 		}
-		go handleConn(nc, cfg)
+		select {
+		case preAuth <- struct{}{}:
+			go handleConn(nc, cfg, preAuth)
+		default:
+			nc.Close()
+		}
 	}
 }
+
+// Whole handshake + login must finish within this, or the socket is dropped.
+const authTimeout = 30 * time.Second
 
 func hostKey(path string) (ssh.Signer, error) {
 	if b, err := os.ReadFile(path); err == nil {
@@ -171,12 +184,15 @@ func checkToken(pw string) bool {
 	return subtle.ConstantTimeCompare([]byte(parts[0]), []byte(pw)) == 1
 }
 
-func handleConn(nc net.Conn, cfg *ssh.ServerConfig) {
+func handleConn(nc net.Conn, cfg *ssh.ServerConfig, preAuth chan struct{}) {
+	nc.SetDeadline(time.Now().Add(authTimeout))
 	conn, chans, reqs, err := ssh.NewServerConn(nc, cfg)
+	<-preAuth
 	if err != nil {
 		nc.Close()
 		return
 	}
+	nc.SetDeadline(time.Time{}) // logged in: sessions may idle (keepalives handle dead peers)
 	defer conn.Close()
 	pairing := conn.Permissions.Extensions["pair"] == "1"
 	if !pairing {

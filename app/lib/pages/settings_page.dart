@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../agent/tools.dart';
 import '../keygen.dart';
 import '../models.dart';
+import '../backup_crypto.dart';
 import '../store.dart';
 import '../error_log.dart';
 import 'error_log_page.dart';
@@ -146,30 +147,52 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Backup'),
-        content: const Text('Ikutin password, private key & API key? File-nya jadi sensitif — simpen di tempat aman.'),
+        content: const Text('Ikutin password, private key & API key? Kalau iya, file-nya dikunci pakai password yang lu pilih.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Tanpa rahasia')),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Ikutin semua')),
         ],
       ),
     );
-    if (withSecrets == null) return;
-    final json = await s.exportJson(withSecrets: withSecrets);
+    if (withSecrets == null || !mounted) return;
+    String? pw;
+    if (withSecrets) {
+      pw = await askPassword(context, 'Kunci backup', confirm: true,
+          hint: 'Min. 8 karakter. Tanpa password ini backup-nya ga bisa dibuka — catat baik-baik.');
+      if (pw == null) return;
+    }
+    var json = await s.exportJson(withSecrets: withSecrets);
+    if (pw != null) {
+      toast('Ngunci backup…');
+      json = await BackupCrypto.lock(json, pw);
+    }
     final d = DateTime.now();
     final uri = await FilePicker.saveFile(
-      fileName: 'satsh-backup-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.json',
+      fileName: 'satsh-backup-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}'
+          '${pw != null ? '-terkunci' : ''}.json',
       bytes: Uint8List.fromList(utf8.encode(json)),
       mimeType: 'application/json',
     );
-    if (uri != null) toast('Backup kesimpen');
+    if (uri != null) toast(pw != null ? 'Backup terkunci kesimpen' : 'Backup kesimpen');
   }
 
   Future<void> _import() async {
     final files = await FilePicker.pickFiles();
     if (files.isEmpty) return;
     try {
-      final n = await s.importJson(utf8.decode(await files.first.readAsBytes()));
+      var text = utf8.decode(await files.first.readAsBytes());
+      final j = jsonDecode(text) as Map<String, dynamic>;
+      if (BackupCrypto.isLocked(j)) {
+        if (!mounted) return;
+        final pw = await askPassword(context, 'Password backup');
+        if (pw == null) return;
+        toast('Buka kunci…');
+        text = await BackupCrypto.unlock(j, pw);
+      }
+      final n = await s.importJson(text);
       toast('Restore beres: $n host');
+    } on FormatException {
+      toast('Gagal restore: bukan file backup satsh', error: true);
     } catch (e) {
       toast('Gagal restore: $e', error: true);
     }

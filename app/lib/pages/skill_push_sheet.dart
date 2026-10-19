@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../agent/brain.dart';
 import '../agent/skill_push.dart';
-import '../markas.dart';
 import '../models.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -30,19 +29,17 @@ class _SkillPushSheetState extends State<SkillPushSheet> {
   PushStatus? _st;
   String? _err;
   bool _busy = false;
-  Skill? _markas;
   final _pick = <String>{};
 
-  List<Skill> get _skills => [...Brain.i.skills, if (_markas != null && Brain.i.skill('markas') == null) _markas!];
+  List<Skill> get _skills => Brain.i.skills;
 
   @override
   void initState() {
     super.initState();
     final hosts = Store.i.hosts;
     final last = Store.i.get<String>('skillPushHost', '');
-    _host = Store.i.host(last) ?? Markas.i.host ?? hosts.firstOrNull;
+    _host = Store.i.host(last) ?? hosts.firstOrNull;
     if (widget.only != null) _pick.add(widget.only!);
-    SkillPush.markasSkill().then((m) => mounted ? setState(() => _markas = m) : null);
     _load();
   }
 
@@ -59,7 +56,7 @@ class _SkillPushSheetState extends State<SkillPushSheet> {
       setState(() => _st = st);
       if (widget.only == null && _pick.isEmpty) {
         // Pre-tick what's out of date.
-        _pick.addAll(_skills.where((s) => st.of(s) != PushState.same).map((s) => s.name).where((n) => n != 'markas' || st.hasAgent));
+        _pick.addAll(_skills.where((s) => st.of(s) != PushState.same).map((s) => s.name));
       }
     } catch (e) {
       if (mounted) setState(() => _err = '$e');
@@ -160,7 +157,7 @@ class _SkillPushSheetState extends State<SkillPushSheet> {
                 const SizedBox(width: 8),
                 _state(st.of(s)),
               ]),
-              subtitle: Text(s.name == 'markas' && identical(s, _markas) ? 'Skill Markas bawaan satsh buat Hermes' : s.description,
+              subtitle: Text(s.description,
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: C.muted, fontSize: 12)),
             ),
           const SizedBox(height: 8),

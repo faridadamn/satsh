@@ -27,7 +27,7 @@ class MediaServer {
   /// Returns a base URL that maps to the remote filesystem root.
   Future<String> mount(SftpClient sftp) async {
     final port = await _ensure();
-    final token = List.generate(16, (_) => _rnd.nextInt(16).toRadixString(16)).join();
+    final token = List.generate(32, (_) => _rnd.nextInt(16).toRadixString(16)).join();
     _mounts[token] = sftp;
     return 'http://127.0.0.1:$port/$token';
   }
@@ -46,7 +46,9 @@ class MediaServer {
     try {
       final segs = req.uri.pathSegments;
       final sftp = segs.isEmpty ? null : _mounts[segs.first];
-      if (sftp == null) {
+      // Only GET/HEAD, and only for our own host name (blocks DNS rebinding).
+      final hostOk = (req.headers.host ?? '') == '127.0.0.1';
+      if (sftp == null || !hostOk || (req.method != 'GET' && req.method != 'HEAD')) {
         res.statusCode = HttpStatus.forbidden;
         await res.close();
         return;
@@ -58,7 +60,16 @@ class MediaServer {
         st = await sftp.stat(path);
       }
       final size = st.size ?? 0;
-      res.headers.contentType = ContentType.parse(mimeFor(path));
+      final mime = mimeFor(path);
+      res.headers.contentType = ContentType.parse(mime);
+      res.headers.set('X-Content-Type-Options', 'nosniff');
+      if (mime.startsWith('text/html') || mime.startsWith('image/svg')) {
+        // Pages from the server run in an opaque origin: scripts work, but they
+        // can't read other files through this mount (the token in the URL maps
+        // to the server's whole filesystem — think ~/.ssh/id_rsa). Same as the
+        // desktop app.
+        res.headers.set('Content-Security-Policy', 'sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads');
+      }
       res.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
       res.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
 
@@ -90,7 +101,9 @@ class MediaServer {
       }
       final f = await sftp.open(path);
       try {
-        await res.addStream(f.read(offset: start, length: length));
+        // Small, bounded read-ahead: ExoPlayer opens and drops ranges a lot, and
+        // each stream should hold at most ~512 KB in flight.
+        await res.addStream(f.read(offset: start, length: length, chunkSize: 32 * 1024, maxPendingRequests: 16));
       } finally {
         await f.close();
       }

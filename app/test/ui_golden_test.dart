@@ -18,9 +18,6 @@ import 'package:satsh/pages/settings_page.dart';
 import 'package:satsh/pages/server_page.dart';
 import 'package:satsh/pages/error_log_page.dart';
 import 'package:satsh/pages/profiles_sheet.dart';
-import 'package:satsh/pages/markas_page.dart';
-import 'package:satsh/markas.dart';
-import 'dart:convert';
 import 'package:satsh/error_log.dart';
 import 'package:satsh/browser.dart';
 import 'browser_test.dart' show FakeBackend;
@@ -86,7 +83,6 @@ void main() {
       await Store.i.saveHost(h);
     }
     Store.i.saveForward(Forward(id: 'f', label: 'GUI Leo', hostId: 'a', localPort: 8770, remotePort: 8770));
-    markasSnap = await _markasSample();
     Store.i.saveForward(Forward(id: 'g', label: 'Postgres', hostId: 'c', localPort: 15432, remotePort: 5432));
   });
 
@@ -107,22 +103,6 @@ void main() {
     SshManager.i.sessions.clear();
   });
 
-  testWidgets('markas setup', (t) async {
-    Markas.i.hostId = '';
-    Markas.i.snap = null;
-    await shot(t, const Scaffold(body: MarkasPage()), 'markas_setup');
-  });
-  testWidgets('markas', (t) async {
-    Markas.i.hostId = 'a';
-    Markas.i.snap = markasSnap;
-    await shot(t, const Shell(), 'markas', after: () async {
-      shellTab.value = 2;
-      await t.pump(const Duration(seconds: 1));
-    });
-    shellTab.value = 0;
-    Markas.i.hostId = '';
-    Markas.i.snap = null;
-  });
   testWidgets('snippets', (t) => shot(t, const Scaffold(body: SnippetsPage()), 'snippets'));
   testWidgets('forwards', (t) => shot(t, const Scaffold(body: ForwardsPage()), 'forwards'));
   testWidgets('edit', (t) => shot(t, HostEditPage(host: Store.i.host('b')), 'edit'));
@@ -296,33 +276,4 @@ void main() {
     saveManual({});
   });
   testWidgets('brain jobs', (t) => shot(t, const BrainPage(initialTab: 3), 'brain_jobs'));
-}
-
-Map<String, dynamic>? markasSnap;
-
-Future<Map<String, dynamic>> _markasSample() async {
-  final home = Directory.systemTemp.createTempSync('mk').path;
-  Future<String> r(List<String> a, [String who = 'adam']) async =>
-      '${(await Process.run('python3', ['../markas/markas.py', ...a, '--as', who], environment: {'MARKAS_HOME': home})).stdout}';
-  await r(['init']);
-  await r(['target', 'add', 'Payu: 10 UMKM bayar langganan', '--owner', 'hermes', '--deadline', '2026-11-30', '--metric', '10 invoice lunas']);
-  await r(['target', 'add', 'Landing page Payu versi anti-slop', '--owner', 'web-designer', '--deadline', '2026-10-20']);
-  await r(['target', 'add', '3 video motion buat portofolio', '--owner', 'adam', '--metric', '3 video di IG']);
-  await r(['target', 'add', 'Konten IG Payu 2x/minggu', '--owner', 'muse']);
-  await r(['target', 'update', '1', '--progress', '40'], 'hermes');
-  await r(['target', 'update', '2', '--progress', '75'], 'web-designer');
-  await r(['target', 'update', '3', '--progress', '100']);
-  await r(['log', 'Hero + pricing section jadi, skor anti-slop 9/10', '--target', '2'], 'web-designer');
-  await r(['log', '4 UMKM udah trial, 2 minta demo', '--target', '1'], 'hermes');
-  await r(['say', 'Rapat pagi: 2 target jalan, Payu butuh keputusan harga paket.', '--to', 'adam'], 'satsh');
-  await r(['say', 'oke, harga 49rb dulu']);
-  final snap = jsonDecode(await r(['status', '--json'])) as Map<String, dynamic>;
-  for (final k in ['logs', 'messages', 'targets']) {
-    for (final e in (snap[k] as List? ?? const [])) {
-      for (final f in ['at', 'created', 'updated']) {
-        if ((e as Map).containsKey(f)) e[f] = '2026-10-05 08:00:00';
-      }
-    }
-  }
-  return snap;
 }
