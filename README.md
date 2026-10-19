@@ -2,7 +2,11 @@
 
 SSH client Android yang "gw banget": terminal, SFTP, tunnel, agent AI di dalam aplikasi, Mode Server (HP lain bisa SSH ke HP ini), plus versi desktop buat Windows 7 / 10 / 11.
 
-Versi app: **2.7.1** · desktop **2.4.8**
+Versi app: **2.7.2** · desktop **2.4.8**
+
+## Baru di 2.7.2
+
+- **Tempel perintah SSH** di form host: tombol "Tempel perintah SSH" (baca clipboard) atau paste langsung ke kolom Host. Ngerti `ssh -p 2222 user@host`, `ssh host -p 2222`, `-l user`, `-o Port=/User=`, `ssh://user@host:port`, `user@host:port`, `sshpass -p … ssh …` (password ikut keisi), dan `mosh --ssh="ssh -p 2222" user@host` (nyambung pakai SSH biasa; mosh belum didukung). Perintah setelah host masuk ke auto-run; `-i`, `-J`, `-L/-R/-D` dikasih catatan harus diset di mana
 
 ## Baru di 2.7.1 (hardening)
 
