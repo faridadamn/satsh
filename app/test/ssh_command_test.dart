@@ -40,6 +40,7 @@ void main() {
     ok('ssh me@h.io -t "tmux new -A -s main"', 'h.io', user: 'me', cmd: 'tmux new -A -s main');
     ok('ssh me@h.io uptime', 'h.io', user: 'me', cmd: 'uptime');
     ok('/usr/bin/ssh me@h.io', 'h.io', user: 'me');
+    ok(r'C:\Windows\System32\OpenSSH\ssh.exe me@h.io', 'h.io', user: 'me');
     ok('ssh -i ~/.ssh/id_ed25519 me@h.io', 'h.io', user: 'me', notes: 1);
     ok('ssh -J bastion me@10.0.0.5', '10.0.0.5', user: 'me', notes: 1);
     ok('ssh -L 8080:localhost:80 me@h.io', 'h.io', user: 'me', notes: 1);

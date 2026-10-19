@@ -371,12 +371,18 @@ function viewHost(force) {
   if (sub && sub.type === "sftp") return viewSftp();
   if (sub && sub.type === "file") return viewFile();
   const hosts = S.st.hosts;
-  const quick = h("input", { class: "field mono", placeholder: "root@192.168.1.10:22  —  quick connect", style: { maxWidth: "460px" } });
+  const quick = h("input", { class: "field mono", placeholder: "user@host:port  atau  ssh -p 2222 user@host  —  quick connect", style: { maxWidth: "460px" } });
   quick.onkeydown = async (e) => {
     if (e.key !== "Enter") return;
-    const m = /^(?:([^@]+)@)?([^:@\s]+)(?::(\d+))?$/.exec(quick.value.trim()); if (!m) return toast("Format: user@host:port", true);
-    let hst = hosts.find((x) => x.host === m[2] && String(x.port) === (m[3] || "22") && x.username === (m[1] || "root"));
-    if (!hst) hst = (await tryDo(() => api("/api/host", { host: { label: m[2], host: m[2], port: +(m[3] || 22), username: m[1] || "root", auth: "password", color: hosts.length } }))).host;
+    const r = SshCommand.parse(quick.value); if (!r || !r.host) return toast("Format: user@host:port atau ssh -p 2222 user@host", true);
+    const port = r.port || 22, user = r.user || "root";
+    if (r.notes.length) toast(r.notes[0]);
+    let hst = hosts.find((x) => x.host === r.host && +x.port === port && x.username === user);
+    if (!hst) {
+      const body = { host: { label: r.host, host: r.host, port, username: user, auth: "password", color: hosts.length, startup: r.command || "" } };
+      if (r.password) body.password = r.password;
+      hst = (await tryDo(() => api("/api/host", body))).host;
+    }
     await refresh(); openTerminal(hst);
   };
   return h("div", { class: "view" },
@@ -425,7 +431,28 @@ async function editHost(x) {
     const drawColors = () => colors.replaceChildren(...GRADS.map((g, i) => h("div", { class: "press", style: { width: "36px", height: "36px", borderRadius: "12px", background: grad(i), outline: i === color ? "2.5px solid var(--text)" : "none", outlineOffset: "2px" }, onclick: () => { color = i; drawColors(); } })));
     drawColors();
     const fields = [f("label", "Nama (mis. VPS, Laptop Leo)"), f("host", "IP / domain"), f("port", "22"), f("username", "username"), f("startup", "Auto-run pas masuk, mis. tmux new -A -s main")];
-    return [h("h2", {}, x.id ? "Edit host" : "Host baru"), h("div", { class: "col" }, fields[0], h("div", { class: "row" }, h("div", { style: { flex: 3 } }, fields[1]), h("div", { style: { flex: 1 } }, fields[2])), fields[3],
+    // Paste "ssh -p 2222 user@host" / "mosh --ssh=…" / "user@host:port" → fills the form.
+    const notes = h("div", { class: "col", style: { gap: "4px" } });
+    const fill = (text, quiet) => {
+      const r = SshCommand.parse(text);
+      if (!r || !r.host) { if (!quiet) toast("Ga nemu host di situ. Contoh: ssh -p 2222 user@host", true); return false; }
+      fields[1].value = r.host; fields[2].value = r.port || 22;
+      if (r.user) fields[3].value = r.user;
+      if (r.password) { auth = "password"; pw.value = r.password; }
+      if (r.notes.some((n) => /SSH Key/.test(n))) auth = "key";
+      drawAuth();
+      if (r.command && !fields[4].value.trim()) fields[4].value = r.command;
+      notes.replaceChildren(...r.notes.map((n) => h("div", { class: "muted small" }, "ⓘ " + n)));
+      pasteBtn.querySelector(".sub").textContent = "Keisi: " + (r.user || fields[3].value) + "@" + r.host + ((r.port || 22) === 22 ? "" : ":" + r.port);
+      return true;
+    };
+    const pasteBox = h("input", { class: "field mono", placeholder: "Tempel di sini — ssh -p 2222 user@host", onpaste: (e) => {
+      const t = (e.clipboardData || window.clipboardData).getData("text"); if (fill(t)) { e.preventDefault(); pasteBox.value = ""; } } });
+    pasteBox.onkeydown = (e) => { if (e.key === "Enter" && fill(pasteBox.value)) pasteBox.value = ""; };
+    const pasteBtn = h("div", { class: "card", style: { padding: "10px 12px", borderColor: "var(--violet)" } },
+      h("div", { style: { fontWeight: 700 } }, "Tempel perintah SSH"), h("div", { class: "sub mono muted small", style: { margin: "2px 0 8px" } }, "mis. ssh -p 2222 user@host · mosh … · user@host:port"), pasteBox);
+    fields[1].addEventListener("input", () => { const v = fields[1].value; if (/\s|@|^ssh:\/\/|:\d+$/.test(v.trim())) fill(v, true); });
+    return [h("h2", {}, x.id ? "Edit host" : "Host baru"), pasteBtn, notes, h("div", { class: "col" }, fields[0], h("div", { class: "row" }, h("div", { style: { flex: 3 } }, fields[1]), h("div", { style: { flex: 1 } }, fields[2])), fields[3],
       h("label", { class: "lbl" }, "Login pakai"), authBox, h("label", { class: "lbl" }, "Auto-run"), fields[4], h("label", { class: "lbl" }, "Warna"), colors,
       h("div", { class: "row", style: { justifyContent: "flex-end", marginTop: "8px" } }, h("button", { class: "btn ghost", onclick: () => close(null) }, "Batal"),
         h("button", { class: "btn primary", onclick: () => { const o = {}; fields.forEach((i) => (o[i.dataset.k] = i.value.trim())); close({ host: Object.assign({}, x, o, { auth, color, port: +(o.port || 22) }), password: pw.value, key: key.value.trim(), passphrase: pp.value }); } }, "Simpan")))];

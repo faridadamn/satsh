@@ -107,7 +107,7 @@ class SshCommand {
       );
     }
 
-    if (i < t.length && (t[i] == 'ssh' || t[i].endsWith('/ssh') || t[i] == 'ssh.exe')) {
+    if (i < t.length && (t[i] == 'ssh' || t[i].endsWith('/ssh') || RegExp(r'(^|[\\/])ssh\.exe$', caseSensitive: false).hasMatch(t[i]))) {
       final r = _parseSsh(t, i + 1, notes);
       if (r == null) return null;
       return ParsedSsh(host: r.host, port: r.port, user: r.user, password: password, command: r.command, notes: notes);
@@ -277,7 +277,8 @@ class SshCommand {
       } else if (c == "'" || c == '"') {
         q = c;
         has = true;
-      } else if (c == r'\' && i + 1 < s.length) {
+      } else if (c == r'\' && i + 1 < s.length && ' \t\'"\\'.contains(s[i + 1])) {
+        // Escapes only space/quotes/backslash, so Windows paths (C:\…\ssh.exe) survive.
         cur.write(s[++i]);
         has = true;
       } else if (c == ' ' || c == '\t') {

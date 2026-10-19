@@ -1,4 +1,4 @@
-satsh desktop v2.4.8 - agent + SSH buat Windows 7 / 10 / 11
+satsh desktop v2.4.9 - agent + SSH buat Windows 7 / 10 / 11
 ==========================================
 
 PASANG (sekali aja)
@@ -21,7 +21,7 @@ UPDATE DARI VERSI LAMA
 2. Buka zip, masuk ke folder satsh-desktop di dalamnya, copy ISINYA ke folder itu (timpa semua).
    Jangan sampai jadi folder dobel (satsh-desktop\satsh-desktop\...).
 3. Klik 2x install.bat di folder itu. Satsh versi lama yang masih nyala otomatis dimatiin & diganti.
-4. Cek nomor versi di pojok kiri atas (tulisan "desktop 2.4.8").
+4. Cek nomor versi di pojok kiri atas (tulisan "desktop 2.4.9").
 Data lu aman: semuanya ada di %USERPROFILE%\.satsh, bukan di folder aplikasi.
 
 PERTAMA KALI
@@ -29,6 +29,12 @@ PERTAMA KALI
   API key, model (tombol "Daftar" buat ngambil list model), klik Tes.
   Bisa tambah beberapa provider: kalau #1 error/limit, otomatis pindah ke #2 (fallback).
 - Host: tambah server SSH lu. Pas pertama connect, cocokin fingerprint-nya.
+
+BARU DI 2.4.9
+- Tempel perintah SSH: di form Host baru (kotak "Tempel perintah SSH" atau langsung paste
+  ke kolom host) dan di kotak quick connect. Ngerti "ssh -p 2222 user@host",
+  "mosh --ssh=\"ssh -p 2222\" user@host" (nyambung pakai SSH biasa), ssh://..., user@host:port,
+  sshpass -p ... (password ikut keisi). Perintah setelah host masuk ke Auto-run.
 
 BARU DI 2.4.8
 - Satpam data keluar: kalau agent mau buka URL / ngetik teks yang kayaknya bawa rahasia
