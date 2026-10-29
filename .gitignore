@@ -7,6 +7,7 @@ __pycache__/
 .DS_Store
 app/test/failures/
 app/android/build/
+app/android/.kotlin/
 app/android/local.properties
 key.properties
 *.jks
