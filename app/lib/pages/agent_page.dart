@@ -223,6 +223,7 @@ class _AgentPageState extends State<AgentPage> {
         // tool results indexed by call id
         final results = {for (final m in a.messages.where((m) => m.role == 'tool')) m.callId: m};
         final visible = a.messages.where((m) => m.role != 'tool').toList();
+        final showCont = !a.busy && visible.isNotEmpty && visible.last.role == 'assistant' && isLoopStop(visible.last.text);
         final todos = a.session.todos;
         return SafeArea(
           bottom: false,
@@ -340,8 +341,9 @@ class _AgentPageState extends State<AgentPage> {
                   : ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
-                      itemCount: visible.length + (a.busy ? 1 : 0),
+                      itemCount: visible.length + (a.busy || showCont ? 1 : 0),
                       itemBuilder: (_, i) {
+                        if (i == visible.length && !a.busy) return _ContinueRow(onTap: () => _send('lanjut'));
                         if (i == visible.length) return _Thinking(status: Redact.text(a.status), onStop: a.stop);
                         final m = visible[i];
                         if (m.role == 'event') return _EventPill(Redact.text(m.text));
@@ -410,6 +412,26 @@ class _AgentPageState extends State<AgentPage> {
       },
     );
   }
+}
+
+/// Shown under the agent's own "I stopped" message (step cap / going in circles).
+class _ContinueRow extends StatelessWidget {
+  const _ContinueRow({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 8),
+        child: Row(children: [
+          FilledButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            label: const Text('Lanjut'),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text('atau ketik arahan lain', style: TextStyle(color: C.muted, fontSize: 12))),
+        ]),
+      );
 }
 
 class _UserBubble extends StatelessWidget {

@@ -262,6 +262,11 @@ function renderChat() {
         kids.push(memo("c" + sid + "/" + c.id + "/" + (r ? (r.isError ? "e" : "o") + (r.text || "").length : "-") + (S.expanded.has(c.id) ? "+" : ""), () => toolChip(c, r)));
       });
     });
+    const last = s.messages[s.messages.length - 1];
+    if (!s.busy && last && last.role === "assistant" && /^_(Kebanyakan langkah|Kayaknya gw nyangkut)/.test(last.text || ""))
+      kids.push(memo("cont" + sid + "/" + s.messages.length, () => h("div", { class: "row", style: { gap: "8px" } },
+        h("button", { class: "btn primary", onclick: () => send("lanjut") }, "Lanjut"),
+        h("span", { class: "muted small" }, "atau ketik arahan lain di bawah"))));
     if (s.busy) kids.push(h("div", { class: "thinking" }, h("i"), h("i"), h("i"), h("span", {}, s.status || "Mikir…")));
   }
   for (const key of [...NODES.keys()]) if (!memo.used.has(key)) NODES.delete(key);
@@ -756,6 +761,8 @@ function setAgent(el) {
   const GL = { laptop: "File laptop", shell: "Shell & proses", device: "Clipboard, screenshot, info", ssh: "Server SSH", supabase: "Supabase", web: "HTTP GET", browser: "Browser agen (Chrome/Edge)" };
   el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Provider LLM (fallback berurutan)"), h("div", { class: "muted small" }, "Kalau provider #1 error/limit, otomatis pindah ke berikutnya."), box),
     h("div", { class: "card col" }, h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Auto-izinin semua aksi"), h("div", { class: "muted small" }, "Agent ga nanya dulu sebelum hapus file / jalanin perintah. Hati-hati.")), sw(st.autoApprove, (v) => saveSettings({ autoApprove: v }))),
+    h("div", { class: "card col" }, h("b", {}, "Batas langkah per pesan"), h("div", { class: "muted small" }, "Pengaman kalau agent kebablasan. Tombol stop selalu bisa dipakai, dan agent berhenti sendiri kalau ketahuan muter-muter (aksi sama berulang / error terus)."),
+      seg([[50, "50"], [150, "150"], [400, "400"], [0, "Tanpa batas"]], st.maxSteps == null ? 150 : st.maxSteps, (v) => saveSettings({ maxSteps: v }).then(render))),
     h("div", { class: "card col" }, h("div", { class: "row" }, h("div", { style: { flex: 1 } }, h("b", {}, "Sensor data sensitif di proses agent"), h("div", { class: "muted small" }, "API key, password, token, private key & IP disamarin (••••) di langkah tool, status, dan dialog izin.")), sw(st.redact !== false, (v) => saveSettings({ redact: v })))),
       ...S.st.toolGroups.filter((g) => g !== "misc").map((g) => h("div", { class: "row" }, h("div", { style: { flex: 1 } }, GL[g] || g, h("span", { class: "muted small" }, "  " + (S.st.toolCount[g] || 0) + " tools")), sw(!off.includes(g), (v) => saveSettings({ toolGroupsOff: v ? off.filter((x) => x !== g) : off.concat([g]) })))),
       h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Shell default"), seg([["cmd", "cmd"], ["powershell", "PowerShell"]], st.shell, (v) => saveSettings({ shell: v }).then(render)))),

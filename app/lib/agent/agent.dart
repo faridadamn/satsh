@@ -24,6 +24,27 @@ import '../error_log.dart';
 typedef Approver = Future<String> Function(AgentTool tool, Map<String, dynamic> args); // 'yes' | 'no' | 'all'
 
 /// Per-run settings shared by the main chat, subagents, cron jobs and reviews.
+const stepLimitText = '_Kebanyakan langkah, gw berhenti dulu. Ketik "lanjut" kalau mau diterusin._';
+const stuckPrefix = '_Kayaknya gw nyangkut';
+
+/// Identical tool calls in a row that count as going in circles.
+const sameCallLimit = 4;
+
+/// Steps in a row where every tool failed.
+const errorStreakLimit = 5;
+
+/// True when [text] is the loop's own "I stopped" message (the UI offers a Lanjut button).
+bool isLoopStop(String text) => text.startsWith('_Kebanyakan langkah') || text.startsWith(stuckPrefix);
+
+Object? _canon(Object? v) => v is Map
+    ? {for (final k in (v.keys.map((k) => '$k').toList()..sort())) k: _canon(v[k])}
+    : v is List
+        ? v.map(_canon).toList()
+        : v;
+
+String callSignature(List<ToolCall> calls) =>
+    (calls.map((c) => jsonEncode([c.name, _canon(c.args)])).toList()..sort()).join('\n');
+
 class RunCtx {
   RunCtx({
     this.session,
@@ -46,6 +67,7 @@ class RunCtx {
   final void Function(String)? onStatus;
   final VoidCallback? onChange;
   final bool Function()? isCancelled;
+  /// <= 0: no limit (the stop button and the loop detector still apply).
   final int maxSteps;
   bool get cancelled => isCancelled?.call() ?? false;
 
@@ -72,6 +94,9 @@ class AgentController extends ChangeNotifier {
 
   Brain get brain => Brain.i;
   int get reviewEvery => Store.i.get<int>('reviewEvery', 6);
+
+  /// Step cap for a chat message; 0 = no limit.
+  int get maxSteps => Store.i.get<int>('maxSteps', 150);
   int get ctxChars => Store.i.get<int>('ctxChars', 80000);
 
   Future<void> load() async {
@@ -298,6 +323,7 @@ ${worker ? '' : '''
         },
         onChange: notifyListeners,
         isCancelled: () => _cancel,
+        maxSteps: maxSteps,
       );
       await runLoop(
           llm: llm,
@@ -374,7 +400,9 @@ ${worker ? '' : '''
   }) async {
     tools ??= [...baseTools(), ...brainTools(ctx)];
     var finalText = '';
-    for (var step = 0; step < ctx.maxSteps; step++) {
+    var same = 0, errStreak = 0;
+    String? lastSig;
+    for (var step = 0; ctx.maxSteps <= 0 || step < ctx.maxSteps; step++) {
       if (ctx.cancelled) break;
       if (ctx.switchTo != null) {
         llm = ctx.switchTo!;
@@ -386,19 +414,38 @@ ${worker ? '' : '''
       ctx.onChange?.call();
       if (reply.text.trim().isNotEmpty) finalText = reply.text;
       if (reply.calls.isEmpty) return finalText;
+      final results = <Msg>[];
       for (final c in reply.calls) {
         if (ctx.cancelled) {
           history.add(Msg(role: 'tool', callId: c.id, name: c.name, text: 'Dibatalin user', isError: true));
           continue;
         }
-        history.add(await _runTool(c, tools, ctx));
+        final r = await _runTool(c, tools, ctx);
+        results.add(r);
+        history.add(r);
         ctx.onChange?.call();
       }
       ctx.onStatus?.call('Mikir…');
-      if (step == ctx.maxSteps - 1) {
-        const t = '_Kebanyakan langkah, gw berhenti dulu. Ketik "lanjut" kalau mau diterusin._';
-        history.add(Msg(role: 'assistant', text: t));
-        return t;
+      if (ctx.maxSteps > 0 && step == ctx.maxSteps - 1) {
+        history.add(Msg(role: 'assistant', text: stepLimitText));
+        return stepLimitText;
+      }
+      // going in circles? stop on our own instead of burning the whole budget
+      final sig = callSignature(reply.calls);
+      same = sig == lastSig ? same + 1 : 1;
+      lastSig = sig;
+      errStreak = results.isNotEmpty && results.every((r) => r.isError) ? errStreak + 1 : 0;
+      String? stuck;
+      if (same >= sameCallLimit) {
+        stuck = '$stuckPrefix: manggil `${reply.calls.first.name}` dengan argumen yang sama ${same}x berturut-turut, gw berhenti dulu. '
+            'Ketik "lanjut" kalau emang mau diterusin, atau kasih arahan lain._';
+      } else if (errStreak >= errorStreakLimit) {
+        stuck = '$stuckPrefix: $errStreak langkah berturut-turut error semua, gw berhenti dulu. '
+            'Cek errornya di atas, terus ketik "lanjut" kalau mau dicoba lagi, atau kasih arahan lain._';
+      }
+      if (stuck != null) {
+        history.add(Msg(role: 'assistant', text: stuck));
+        return stuck;
       }
     }
     return finalText;

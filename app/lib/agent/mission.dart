@@ -537,7 +537,7 @@ class MissionRunner extends ChangeNotifier {
       await brain.saveSession(s);
       rethrow;
     }
-    final ranOut = out.startsWith('_Kebanyakan langkah');
+    final ranOut = isLoopStop(out);
     if (!run.cancel && (ranOut || !state.journal)) {
       // out of steps or forgot the journal: one short wrap-up so the next iteration knows where it stands
       s.messages.add(Msg(

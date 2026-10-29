@@ -27,6 +27,7 @@ DEFAULTS = {
     "toolGroupsOff": [],
     "agentPrompt": "",
     "reviewEvery": 6,
+    "maxSteps": 150,  # per chat message; 0 = no limit (stop button + loop detector still apply)
     "ctxChars": 80000,
     "supabaseUrl": "",
     "shell": "cmd",  # cmd | powershell

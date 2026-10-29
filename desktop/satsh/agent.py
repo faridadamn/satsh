@@ -59,6 +59,23 @@ def generated_dir():
     return os.environ.get("SATSH_GEN_DIR") or os.path.join(os.path.expanduser("~"), "Pictures", "satsh")
 
 
+STEP_LIMIT_TEXT = '_Kebanyakan langkah, gw berhenti dulu. Ketik "lanjut" kalau mau diterusin._'
+STUCK_PREFIX = "_Kayaknya gw nyangkut"
+SAME_CALL_LIMIT = 4  # identical tool calls in a row = going in circles
+ERROR_STREAK_LIMIT = 5  # steps in a row where every tool failed
+
+
+def _int(v, default):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _call_sig(calls):
+    return json.dumps(sorted([c["name"], json.dumps(c.get("args") or {}, sort_keys=True, default=str)] for c in calls))
+
+
 class RunCtx:
     def __init__(self, session=None, depth=0, auto=False, deny_risky=False, max_steps=24, status=None, change=None, cancelled=None, profile=None):
         self.session = session
@@ -66,7 +83,7 @@ class RunCtx:
         self.depth = depth
         self.auto = auto
         self.deny_risky = deny_risky
-        self.max_steps = max_steps
+        self.max_steps = max_steps  # <= 0: no limit (stop button + loop detector still apply)
         self.status = status or (lambda s: None)
         self.change = change or (lambda: None)
         self.cancelled = cancelled or (lambda: False)
@@ -235,6 +252,7 @@ class Agent:
                 status=lambda st: self._set_status(s, st),
                 change=lambda: self._emit_session(s),
                 cancelled=lambda: self.runs.get(sid, {}).get("cancel", False),
+                max_steps=_int(cfg.get("maxSteps", 150), 150),
             )
             self.run_loop(llm, s["messages"], ctx, self.system_prompt(profile=pb), tools=self.base_tools(pb.id) + self.brain_tools(ctx),
                           context_of=lambda: self.context_window(s))
@@ -256,7 +274,9 @@ class Agent:
         tools = tools if tools is not None else self.base_tools() + self.brain_tools(ctx)
         specs = [{k: t[k] for k in ("name", "description", "params", "required")} for t in tools]
         final = ""
-        for step in range(ctx.max_steps):
+        same, last_sig, err_streak = 0, None, 0
+        step = 0
+        while ctx.max_steps <= 0 or step < ctx.max_steps:
             if ctx.cancelled():
                 break
             if ctx.switch_to is not None:
@@ -273,17 +293,35 @@ class Agent:
                 final = reply.text
             if not reply.calls:
                 return final
+            results = []
             for c in reply.calls:
                 if ctx.cancelled():
                     history.append({"role": "tool", "callId": c["id"], "name": c["name"], "text": "Dibatalin user", "isError": True})
                     continue
-                history.append(self._run_tool(c, tools, ctx))
+                r = self._run_tool(c, tools, ctx)
+                results.append(r)
+                history.append(r)
                 ctx.change()
             ctx.status("Mikir…")
-            if step == ctx.max_steps - 1:
-                t = '_Kebanyakan langkah, gw berhenti dulu. Ketik "lanjut" kalau mau diterusin._'
-                history.append({"role": "assistant", "text": t})
-                return t
+            if ctx.max_steps > 0 and step == ctx.max_steps - 1:
+                history.append({"role": "assistant", "text": STEP_LIMIT_TEXT})
+                return STEP_LIMIT_TEXT
+            # going in circles? stop on our own instead of burning the whole budget
+            sig = _call_sig(reply.calls)
+            same = same + 1 if sig == last_sig else 1
+            last_sig = sig
+            err_streak = err_streak + 1 if results and all(r.get("isError") for r in results) else 0
+            stuck = None
+            if same >= SAME_CALL_LIMIT:
+                stuck = '%s: manggil `%s` dengan argumen yang sama %dx berturut-turut, gw berhenti dulu. Ketik "lanjut" kalau emang mau diterusin, atau kasih arahan lain._' % (
+                    STUCK_PREFIX, reply.calls[0]["name"], same)
+            elif err_streak >= ERROR_STREAK_LIMIT:
+                stuck = '%s: %d langkah berturut-turut error semua, gw berhenti dulu. Cek errornya di atas, terus ketik "lanjut" kalau mau dicoba lagi, atau kasih arahan lain._' % (
+                    STUCK_PREFIX, err_streak)
+            if stuck:
+                history.append({"role": "assistant", "text": stuck})
+                return stuck
+            step += 1
         return final
 
     def _run_tool(self, c, tools, ctx):

@@ -257,6 +257,21 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                   value: s.get<bool>('autoApprove', false),
                   onChanged: (v) => s.set('autoApprove', v),
                 ),
+                const Divider(),
+                const Text('Batas langkah per pesan', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text('Pengaman kalau agent kebablasan. Tombol stop selalu bisa dipakai, dan agent berhenti sendiri kalau ketahuan muter-muter (aksi sama berulang / error terus).',
+                    style: TextStyle(color: C.muted, fontSize: 12)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: [
+                  for (final n in [50, 150, 400, 0])
+                    ChoiceChip(
+                      label: Text(n == 0 ? 'Tanpa batas' : '$n'),
+                      selected: s.get<int>('maxSteps', 150) == n,
+                      onSelected: (_) => s.set('maxSteps', n),
+                    ),
+                ]),
+                const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Sensor data sensitif di proses agent'),
