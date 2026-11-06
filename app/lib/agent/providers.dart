@@ -385,6 +385,12 @@ class CodexProvider implements LlmProvider {
   }
 
   @override
+  Future<LlmReply> chatCached(String prefix, String dynamic_, List<Msg> history, List<ToolSpec> tools) {
+    // Responses API tidak punya cache param: instructions byte-stabil di depan.
+    return chat('$prefix\n\n$dynamic_', history, tools);
+  }
+
+  @override
   Future<LlmReply> chat(String system, List<Msg> history, List<ToolSpec> tools, {bool officialInstr = false}) async {
     final t = await CodexAuth.fresh(cfg.id);
     final input = _input(history);
