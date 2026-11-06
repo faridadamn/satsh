@@ -513,10 +513,11 @@ class MissionRunner extends ChangeNotifier {
       ...a.brainTools(ctx).where((t) => t.spec.name != 'mission_start'),
       ..._missionTools(m, state),
     ];
-    final system = '${a.systemPrompt(profile: pb)}\n\n$missionRules';
+    final system = a.systemPrefix(profile: pb);
+    final dyn = '${a.systemDynamic(profile: pb)}\n\n$missionRules';
     String out;
     try {
-      out = await a.runLoop(llm: llm, history: s.messages, ctx: ctx, system: system, tools: tools, contextOf: window);
+      out = await a.runLoop(llm: llm, history: s.messages, ctx: ctx, system: system, systemDynamic: dyn, tools: tools, contextOf: window);
     } catch (e) {
       // the user's answers/messages weren't really handled: hand them over again next time
       for (final x in handed) {
@@ -551,6 +552,7 @@ class MissionRunner extends ChangeNotifier {
           history: s.messages,
           ctx: RunCtx(session: s, profile: pb, maxSteps: 4, isCancelled: () => run.cancel, onChange: ctx.onChange),
           system: system,
+          systemDynamic: dyn,
           tools: wrapTools,
           contextOf: window);
       if (w.trim().isNotEmpty) out = w;
