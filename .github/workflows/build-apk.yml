@@ -35,8 +35,8 @@ jobs:
       # ANDROID_KEYSTORE_B64 = base64 dari file satsh-release.jks
       # KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD = isinya key.properties
       - name: Restore keystore (release)
-        if: secrets.ANDROID_KEYSTORE_B64 != ''
         run: |
+          if [ -z "$ANDROID_KEYSTORE_B64" ]; then echo "skip: no keystore secret"; exit 0; fi
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > ../android/satsh-release.jks
           cat > ../android/key.properties <<EOF
           storeFile=satsh-release.jks
