@@ -95,6 +95,12 @@ class LlmReply {
 
 abstract class LlmProvider {
   Future<LlmReply> chat(String system, List<Msg> history, List<ToolSpec> tools);
+
+  /// Varian hemat-cache: [prefix] = blok STABIL (di-cache provider),
+  /// [dynamic_] = blok dinamis (timestamp/hosts/memori, tidak di-cache).
+  /// Default: gabung lalu panggil [chat] (perilaku lama, tanpa cache).
+  Future<LlmReply> chatCached(String prefix, String dynamic_, List<Msg> history, List<ToolSpec> tools) =>
+      chat('$prefix\n\n$dynamic_', history, tools);
 }
 
 class LlmError implements Exception {
@@ -155,6 +161,18 @@ class OpenAiCompat implements LlmProvider {
   final String apiKey;
   final String model;
   final http.Client _http;
+
+  @override
+  Future<LlmReply> chatCached(String prefix, String dynamic_, List<Msg> history, List<ToolSpec> tools) async {
+    // Blok 1 stabil + cache_control (diteruskan OpenRouter ke Anthropic /
+    // dibaca OpenAI) → prefix reuse antar request. Blok 2 dinamis tanpa cache.
+    final msgs = _messagesCached(prefix, dynamic_, history, withImages: true);
+    try {
+      return await _send(msgs, tools);
+    } on LlmError {
+      rethrow;
+    }
+  }
 
   @override
   Future<LlmReply> chat(String system, List<Msg> history, List<ToolSpec> tools) async {
@@ -227,6 +245,21 @@ class OpenAiCompat implements LlmProvider {
     return msgs;
   }
 
+  /// System sebagai 2 blok: [prefix] stabil (cache_control=ephemeral)
+  /// + [dynamic_] dinamis (tanpa cache). Provider yang tidak kenal
+  /// cache_control mengabaikannya — aman.
+  List<Map<String, dynamic>> _messagesCached(String prefix, String dynamic_, List<Msg> history, {required bool withImages}) {
+    final noImg = _messages(prefix, history, withImages: withImages);
+    noImg[0] = {
+      'role': 'system',
+      'content': [
+        {'type': 'text', 'text': prefix, 'cache_control': {'type': 'ephemeral'}},
+        {'type': 'text', 'text': dynamic_},
+      ],
+    };
+    return noImg;
+  }
+
   Future<LlmReply> _send(List<Map<String, dynamic>> msgs, List<ToolSpec> tools) async {
     final url = '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/chat/completions';
     final r = await _http
@@ -292,6 +325,17 @@ class Gemini implements LlmProvider {
 
   @override
   Future<LlmReply> chat(String system, List<Msg> history, List<ToolSpec> tools) async {
+    return _chat(system, history, tools);
+  }
+
+  @override
+  Future<LlmReply> chatCached(String prefix, String dynamic_, List<Msg> history, List<ToolSpec> tools) async {
+    // Gemini implicit cache nempel kalau AWAL systemInstruction byte-stabil.
+    // Prefix di depan, konteks dinamis (timestamp) di belakang.
+    return _chat('$prefix\n\n$dynamic_', history, tools);
+  }
+
+  Future<LlmReply> _chat(String system, List<Msg> history, List<ToolSpec> tools) async {
     final contents = <Map<String, dynamic>>[];
     void push(String role, Map<String, dynamic> part) {
       // Gemini wants consecutive same-role parts merged into one turn.

@@ -202,6 +202,24 @@ class FallbackProvider implements LlmProvider {
     }
     throw LlmError(errs.join(' | '));
   }
+
+  @override
+  Future<LlmReply> chatCached(String prefix, String dynamic_, List<Msg> history, List<ToolSpec> tools) async {
+    final errs = <String>[];
+    for (final (name, p) in items) {
+      try {
+        final r = await p.chatCached(prefix, dynamic_, history, tools);
+        lastUsed = name;
+        return r;
+      } catch (e, st) {
+        if (e is! LlmError && e is! TimeoutException && e is! SocketException) {
+          ErrorLog.i.add('llm', e, st, context: {'provider': name});
+        }
+        errs.add('$name: $e');
+      }
+    }
+    throw LlmError(errs.join(' | '));
+  }
 }
 
 // =========================================================== ChatGPT / Codex
