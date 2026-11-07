@@ -86,11 +86,37 @@ class ToolSpec {
   }
 }
 
+/// Baca `usage` dari respon provider apa pun. Tiap provider beda nama field:
+/// - OpenAI / OpenRouter: prompt_tokens + prompt_tokens_details.cached_tokens
+/// - Anthropic (lewat router): cache_read_input_tokens
+/// - DeepSeek / Kimi: prompt_cache_hit_tokens
+/// Return (promptTokens, cachedTokens); (0,0) kalau ga dilaporin.
+(int, int) parseUsage(Map<String, dynamic> j) {
+  final u = j['usage'];
+  if (u is! Map) return (0, 0);
+  int asInt(Object? v) => v is int ? v : (v is num ? v.toInt() : 0);
+
+  final prompt = asInt(u['prompt_tokens']) != 0 ? asInt(u['prompt_tokens']) : asInt(u['input_tokens']);
+  var cached = 0;
+  final d = u['prompt_tokens_details'];
+  if (d is Map) cached = asInt(d['cached_tokens']);
+  if (cached == 0) cached = asInt(u['cache_read_input_tokens']);
+  if (cached == 0) cached = asInt(u['prompt_cache_hit_tokens']);
+  if (cached == 0) cached = asInt(u['cached_tokens']);
+  return (prompt, cached);
+}
+
 class LlmReply {
-  LlmReply(this.text, this.calls, {this.raw});
+  LlmReply(this.text, this.calls, {this.raw, this.promptTokens = 0, this.cachedTokens = 0});
   final String text;
   final List<ToolCall> calls;
   final Object? raw;
+
+  /// Token prompt yang ditagih provider (0 = provider ga lapor).
+  final int promptTokens;
+
+  /// Bagian dari [promptTokens] yang kena prompt cache.
+  final int cachedTokens;
 }
 
 abstract class LlmProvider {
@@ -313,7 +339,8 @@ class OpenAiCompat implements LlmProvider {
       calls.add(ToolCall(id: tc['id'] ?? 'call_${calls.length}', name: f['name'], args: args));
     }
     final content = msg['content'];
-    return LlmReply(content is String ? content : '', calls);
+    final (promptTok, cachedTok) = parseUsage(j);
+    return LlmReply(content is String ? content : '', calls, promptTokens: promptTok, cachedTokens: cachedTok);
   }
 }
 
@@ -428,7 +455,15 @@ class Gemini implements LlmProvider {
         ));
       }
     }
-    return LlmReply(text.toString(), calls, raw: parts.map((e) => Map<String, dynamic>.from(e)).toList());
+    final um = j['usageMetadata'];
+    var pTok = 0, cTok = 0;
+    if (um is Map) {
+      int ai(Object? v) => v is int ? v : (v is num ? v.toInt() : 0);
+      pTok = ai(um['promptTokenCount']);
+      cTok = ai(um['cachedContentTokenCount']);
+    }
+    return LlmReply(text.toString(), calls,
+        raw: parts.map((e) => Map<String, dynamic>.from(e)).toList(), promptTokens: pTok, cachedTokens: cTok);
   }
 }
 

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../store.dart';
 import 'brain.dart';
+import 'cache_stats.dart';
 import 'external.dart';
 import 'llm.dart';
 import 'mission.dart';
@@ -242,8 +243,16 @@ ${Markas.i.configured ? '- MARKAS = workspace bareng Adam & agent lain (hermes, 
   String systemDynamic({ProfileBrain? profile}) {
     final pb = profile ?? brain.active;
     final hosts = Store.i.hosts.map((h) => '${h.label} (${h.address})').join(', ');
+    // Jam dibulatkan ke atas (bukan detik/mikrodetik): blok ini ada di dalam
+    // system message, dan prompt cache provider itu prefix-based. Kalau
+    // timestamp berubah tiap request, seluruh history di belakangnya ikut
+    // dianggap baru → cache miss total. Dengan granularitas jam, prefix stabil
+    // ~1 jam sekali.
+    final now = DateTime.now();
+    final stamp = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:00';
     return '''# Konteks sesi (dinamis — boleh berubah)
-- Waktu sekarang: ${DateTime.now()}.
+- Waktu sekarang: $stamp (WIB).
 - Server SSH tersimpan: ${hosts.isEmpty ? '(belum ada)' : hosts}.
 ${pb.memoryBlock()}
 
@@ -433,6 +442,7 @@ ${pb.skillsIndex()}''';
       final reply = systemDynamic == null
           ? await llm.chat(system, _slim(contextOf?.call() ?? history), tools.map((t) => t.spec).toList())
           : await llm.chatCached(system, systemDynamic, _slim(contextOf?.call() ?? history), tools.map((t) => t.spec).toList());
+      CacheStats.i.add(reply.promptTokens, reply.cachedTokens);
       if (ctx.cancelled) break;
       history.add(Msg(role: 'assistant', text: reply.text, calls: reply.calls, raw: reply.raw));
       ctx.onChange?.call();
@@ -546,6 +556,20 @@ ${pb.skillsIndex()}''';
   /// Only the newest few pictures go to the model; older ones become a note.
   static const keepImages = 3;
 
+  /// Pesan terbaru yang selalu dikirim utuh.
+  static const keepRecent = 16;
+
+  /// Batas potong dibulatkan ke kelipatan ini (lihat [_slim]).
+  static const trimQuantum = 16;
+
+  /// Buang detail lama biar sesi panjang tetap murah — TAPI batas potongnya
+  /// dibulatkan ke kelipatan [trimQuantum].
+  ///
+  /// Kenapa: prompt cache provider itu prefix-based. Versi lama motong di
+  /// `list.length - 16`, jadi tiap step baru batasnya geser 1 pesan → prefix
+  /// berubah tiap step → cache miss terus (hit rate mentok ~50%). Dengan
+  /// pembulatan, batas cuma geser tiap [trimQuantum] pesan, jadi step 1..N
+  /// punya prefix identik dan cache-nya kepakai.
   List<Msg> _slim(List<Msg> list) {
     final out = <Msg>[];
     var imgSeen = 0;
@@ -556,13 +580,16 @@ ${pb.skillsIndex()}''';
         imgSeen++;
       }
     }
+    // Batas potong absolut & stabil: dibulatkan ke atas ke kelipatan quantum.
+    final raw = list.length - keepRecent;
+    final cut = raw <= 0 ? 0 : ((raw + trimQuantum - 1) ~/ trimQuantum) * trimQuantum;
     for (var i = 0; i < list.length; i++) {
       var m = list[i];
       if (m.role == 'event') continue;
       if (m.images.isNotEmpty && !keepImg.contains(i)) {
         m = m.copyWith(images: const [], text: '${m.text}\n[${m.images.length} gambar lama udah dibuang dari konteks]');
       }
-      if (m.role == 'tool' && i < list.length - 16 && m.text.length > 600) {
+      if (m.role == 'tool' && i < cut && m.text.length > 600) {
         out.add(Msg(role: 'tool', callId: m.callId, name: m.name, text: '${m.text.substring(0, 500)}\n…[output lama dipangkas]', isError: m.isError));
       } else {
         out.add(m);

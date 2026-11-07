@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 
+import '../agent/cache_stats.dart';
 import '../agent/tools.dart';
 import '../keygen.dart';
 import '../models.dart';
@@ -449,6 +450,35 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => openErrorLog(context),
                   ),
+                ),
+              ]),
+              _h('Cache prompt', Icons.bolt_rounded),
+              _card([
+                ListenableBuilder(
+                  listenable: CacheStats.i,
+                  builder: (context, _) {
+                    final cs = CacheStats.i;
+                    final pct = (cs.hitRate * 100).toStringAsFixed(0);
+                    final good = cs.hitRate >= 0.7;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.bolt_rounded, color: cs.requests == 0 ? C.muted : (good ? C.green : C.amber)),
+                      title: Text(cs.requests == 0 ? 'Belum ada data cache' : 'Hit rate $pct%'),
+                      subtitle: Text(
+                        cs.requests == 0
+                            ? 'Angka muncul setelah agent ngobrol sama model. Prefix prompt yang stabil = hit rate tinggi.'
+                            : '${cs.cachedTokens}/${cs.promptTokens} token kena cache · ${cs.requests} request · terakhir ${cs.lastCached}/${cs.lastPrompt}',
+                        style: TextStyle(color: C.muted, fontSize: 12),
+                      ),
+                      trailing: cs.requests == 0
+                          ? null
+                          : IconButton(
+                              tooltip: 'Reset',
+                              icon: const Icon(Icons.refresh_rounded),
+                              onPressed: cs.reset,
+                            ),
+                    );
+                  },
                 ),
               ]),
               _h('Backup', Icons.cloud_sync_rounded),
