@@ -44,7 +44,7 @@ class KeepAliveService {
   void init() {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'satsh_keepalive',
+        channelId: 'aigen_keepalive',
         channelName: 'Koneksi aktif',
         channelDescription: 'Jaga sesi SSH & tunnel tetap nyala di background',
         onlyAlertOnce: true,
@@ -94,7 +94,7 @@ class KeepAliveService {
         }
         final r = await FlutterForegroundTask.startService(
           serviceId: 4242,
-          notificationTitle: 'satsh nyala',
+          notificationTitle: 'aigen nyala',
           notificationText: _text(),
           callback: keepAliveCallback,
         );
@@ -102,7 +102,7 @@ class KeepAliveService {
         _last = _text();
       } else if (want && _running && _text() != _last) {
         _last = _text();
-        await FlutterForegroundTask.updateService(notificationTitle: 'satsh nyala', notificationText: _text());
+        await FlutterForegroundTask.updateService(notificationTitle: 'aigen nyala', notificationText: _text());
       } else if (!want && _running) {
         await FlutterForegroundTask.stopService();
         _running = false;

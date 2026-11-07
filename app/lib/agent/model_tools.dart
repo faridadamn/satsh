@@ -36,7 +36,7 @@ class ImageGen {
     if (key.isEmpty) throw 'API key ${p.name} belum diisi';
     if (p.kind == 'gemini') return _gemini(key, model, prompt);
     final base = (p.base.isEmpty ? 'https://api.openai.com/v1' : p.base).replaceAll(RegExp(r'/+$'), '');
-    final headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer $key', 'X-Title': 'satsh'};
+    final headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer $key', 'X-Title': 'aigen'};
     String? firstErr;
     try {
       final r = await client
@@ -143,7 +143,7 @@ class ImageGen {
 }
 
 /// Where generated pictures land on the phone (gallery-visible).
-String generatedDir() => '$phoneBase/Pictures/satsh';
+String generatedDir() => '$phoneBase/Pictures/aigen';
 
 /// Tools for [session]; [onSwitch] gets the new model (null = back to default).
 List<AgentTool> modelTools({
@@ -218,7 +218,7 @@ List<AgentTool> modelTools({
       const ToolSpec(
         name: 'image_generate',
         description:
-            'Bikin gambar dari teks pakai model khusus gambar (mis. gemini-*-image, gpt-image-*, dall-e-3, flux). Cek dulu model yang ada pakai model_list(provider, filter:"image"). Gambar disimpen ke galeri HP (Pictures/satsh) dan kamu bisa lihat hasilnya.',
+            'Bikin gambar dari teks pakai model khusus gambar (mis. gemini-*-image, gpt-image-*, dall-e-3, flux). Cek dulu model yang ada pakai model_list(provider, filter:"image"). Gambar disimpen ke galeri HP (Pictures/aigen) dan kamu bisa lihat hasilnya.',
         params: {
           'prompt': {'type': 'string', 'description': 'deskripsi gambar yang detail'},
           'provider': {'type': 'string', 'description': 'nama/id provider'},
@@ -247,7 +247,7 @@ List<AgentTool> modelTools({
 Future<String> _saveToPhone(Uint8List bytes, String ext) async {
   final d = Directory(generatedDir());
   await d.create(recursive: true);
-  final f = File('${d.path}/satsh_${DateTime.now().millisecondsSinceEpoch}.$ext');
+  final f = File('${d.path}/aigen_${DateTime.now().millisecondsSinceEpoch}.$ext');
   await f.writeAsBytes(bytes);
   return f.path;
 }

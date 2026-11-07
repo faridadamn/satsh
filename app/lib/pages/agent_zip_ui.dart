@@ -6,7 +6,7 @@ import '../agent/agent_zip.dart';
 import '../agent/brain.dart';
 import '../widgets.dart';
 
-/// Save the agent brain as a zip (same format as satsh desktop).
+/// Save the agent brain as a zip (same format as aigen desktop).
 Future<void> exportAgentZip(BuildContext context) async {
   var withSessions = false, withJobs = false;
   final go = await showDialog<bool>(
@@ -15,7 +15,7 @@ Future<void> exportAgentZip(BuildContext context) async {
       builder: (c, set) => AlertDialog(
         title: const Text('Ekspor otak agent (.zip)'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Semua profil: soul, memori, skill, plus profil user. Bisa diimpor di satsh HP lain atau satsh desktop (Win 7/10).'),
+          const Text('Semua profil: soul, memori, skill, plus profil user. Bisa diimpor di aigen HP lain atau aigen desktop (Win 7/10).'),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: withSessions,
@@ -40,7 +40,7 @@ Future<void> exportAgentZip(BuildContext context) async {
   try {
     final bytes = await AgentZip.export(Brain.i, sessions: withSessions, jobs: withJobs);
     final d = DateTime.now();
-    final name = 'satsh-agent-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.zip';
+    final name = 'aigen-agent-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.zip';
     final uri = await FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: 'application/zip');
     if (uri != null) toast('Kesimpen: $name');
   } catch (e) {
@@ -48,7 +48,7 @@ Future<void> exportAgentZip(BuildContext context) async {
   }
 }
 
-/// Merge a satsh-agent zip in (from phone or desktop).
+/// Merge a aigen-agent zip in (from phone or desktop).
 Future<void> importAgentZip(BuildContext context) async {
   try {
     final files = await FilePicker.pickFiles();

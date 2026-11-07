@@ -257,7 +257,7 @@ class SshManager extends ChangeNotifier {
   Future<void> _startShell(TermSession s) async {
     final h = s.host;
     s._set(ConnState.connecting);
-    s.terminal.write('\x1b[38;5;99m⚡ satsh\x1b[0m → \x1b[1m${h.address}\x1b[0m\r\n');
+    s.terminal.write('\x1b[38;5;99m⚡ aigen\x1b[0m → \x1b[1m${h.address}\x1b[0m\r\n');
     try {
       final c = await client(h);
       final shell = await c.shell(

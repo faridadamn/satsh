@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title satsh desktop - install
+title aigen desktop - install
 cd /d "%~dp0"
 echo.
-echo   ===  satsh desktop  ===
+echo   ===  aigen desktop  ===
 echo.
 
 rem --- cari Python: Win7 = 3.8, Win10/11 = 3.8 s/d 3.14 ---
@@ -41,29 +41,29 @@ echo   ... install library - offline
 )
 
 rem --- shortcut Desktop (+ Startup kalau mau) ---
-set VBS=%TEMP%\satsh_lnk.vbs
+set VBS=%TEMP%\aigen_lnk.vbs
 > "%VBS%" echo Set s = CreateObject("WScript.Shell")
 >>"%VBS%" echo Set l = s.CreateShortcut(WScript.Arguments(0))
 >>"%VBS%" echo l.TargetPath = "%~dp0.venv\Scripts\pythonw.exe"
->>"%VBS%" echo l.Arguments = "-m satsh"
+>>"%VBS%" echo l.Arguments = "-m aigen"
 >>"%VBS%" echo l.WorkingDirectory = "%~dp0"
->>"%VBS%" echo l.IconLocation = "%~dp0satsh.ico"
->>"%VBS%" echo l.Description = "satsh desktop"
+>>"%VBS%" echo l.IconLocation = "%~dp0aigen.ico"
+>>"%VBS%" echo l.Description = "aigen desktop"
 >>"%VBS%" echo l.Save
-cscript //nologo "%VBS%" "%USERPROFILE%\Desktop\satsh.lnk"
-echo   [OK] Shortcut "satsh" di Desktop
+cscript //nologo "%VBS%" "%USERPROFILE%\Desktop\aigen.lnk"
+echo   [OK] Shortcut "aigen" di Desktop
 
 echo.
-set /p AUTO=  Nyalain satsh otomatis tiap Windows nyala? (y/n): 
+set /p AUTO=  Nyalain aigen otomatis tiap Windows nyala? (y/n): 
 if /i "%AUTO%"=="y" (
-  cscript //nologo "%VBS%" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\satsh.lnk"
+  cscript //nologo "%VBS%" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\aigen.lnk"
   echo   [OK] Autostart aktif
 )
 del "%VBS%" >nul 2>&1
 
 echo.
-echo   Beres! Buka satsh lewat shortcut di Desktop.
+echo   Beres! Buka aigen lewat shortcut di Desktop.
 echo   (UI kebuka di browser: http://127.0.0.1:8771 - paling enak pakai Chrome)
 echo.
-start "" ".venv\Scripts\pythonw.exe" -m satsh
+start "" ".venv\Scripts\pythonw.exe" -m aigen
 pause

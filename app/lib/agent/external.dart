@@ -9,7 +9,7 @@ import 'llm.dart';
 import 'providers.dart';
 
 /// "Agent eksternal": a CLI agent living on some host (e.g. Antigravity `agy`
-/// in Termux/proot). satsh only sends the message over SSH and renders the
+/// in Termux/proot). aigen only sends the message over SSH and renders the
 /// streamed answer — the agent's soul, memory and login stay on that host.
 ///
 /// Stream format (agy --output-format stream-json):

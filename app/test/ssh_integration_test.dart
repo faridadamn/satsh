@@ -6,10 +6,10 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/markas.dart';
-import 'package:satsh/models.dart';
-import 'package:satsh/ssh_manager.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/markas.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/ssh_manager.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FakePrompts implements Prompts {
@@ -183,7 +183,7 @@ void main() {
     final out = await Markas.i.install(pwHost, load: (n) async => File('../markas/$n').readAsString());
     expect(out, contains('MARKAS_OK'));
     expect(Markas.i.hostId, pwHost.id);
-    await Markas.i.run(['target', 'add', 'Tes dari HP', '--owner', 'satsh']);
+    await Markas.i.run(['target', 'add', 'Tes dari HP', '--owner', 'aigen']);
     await Markas.i.refresh();
     expect(Markas.i.error, isNull);
     expect((Markas.i.snap!['targets'] as List).map((t) => (t as Map)['title']), contains('Tes dari HP'));

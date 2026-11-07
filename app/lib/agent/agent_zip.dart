@@ -6,11 +6,11 @@ import 'package:archive/archive.dart';
 
 import 'brain.dart';
 
-/// Portable "agent brain" zip — the SAME format satsh desktop (Windows 7/10)
+/// Portable "agent brain" zip — the SAME format aigen desktop (Windows 7/10)
 /// reads and writes, so profiles move freely between phone and laptop.
 ///
 /// ```
-/// satsh-agent.json                 manifest (format, version, profiles…)
+/// aigen-agent.json                 manifest (format, version, profiles…)
 /// USER.md                          shared "about the user"
 /// profiles/ID/SOUL.md
 /// profiles/ID/MEMORY.md
@@ -19,7 +19,7 @@ import 'brain.dart';
 /// cron.json                        (optional; imported paused)
 /// ```
 class AgentZip {
-  static const format = 'satsh-agent';
+  static const format = 'aigen-agent';
   static const version = 1;
   static final _sessionRe = RegExp(r'^[0-9A-Za-z_-]{6,64}$');
 
@@ -51,7 +51,7 @@ class AgentZip {
       put('cron.json', jsonEncode([for (final j in b.jobs) if (ids.contains(j.profile ?? 'default')) j.toJson()]));
     }
     put(
-        'satsh-agent.json',
+        'aigen-agent.json',
         const JsonEncoder.withIndent('  ').convert({
           'format': format,
           'version': version,
@@ -78,11 +78,11 @@ class AgentZip {
       return utf8.decode(f.content, allowMalformed: true);
     }
 
-    final manRaw = text('satsh-agent.json');
-    if (manRaw == null) throw 'Bukan zip otak agent satsh (satsh-agent.json ga ada)';
+    final manRaw = text('aigen-agent.json');
+    if (manRaw == null) throw 'Bukan zip otak agent aigen (aigen-agent.json ga ada)';
     final man = jsonDecode(manRaw) as Map<String, dynamic>;
     if (man['format'] != format) throw 'Format zip bukan $format';
-    if ((man['version'] as num? ?? 1) > version) throw 'Zip dari satsh versi lebih baru — update app dulu';
+    if ((man['version'] as num? ?? 1) > version) throw 'Zip dari aigen versi lebih baru — update app dulu';
 
     final notes = <String>[];
     final providerIds = <String>{}; // provider ids are device-specific

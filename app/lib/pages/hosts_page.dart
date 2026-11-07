@@ -123,7 +123,7 @@ class _HostsPageState extends State<HostsPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                   child: Row(children: [
-                    const GradientText('satsh',
+                    const GradientText('aigen',
                         style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: -1)),
                     const SizedBox(width: 8),
                     Container(

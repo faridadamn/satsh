@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 /// phone-screen capture, WebView cookies.
 class Native {
   Native._();
-  static const _ch = MethodChannel('satsh/native');
+  static const _ch = MethodChannel('aigen/native');
 
   /// True while text-to-speech is talking.
   static final speaking = ValueNotifier<bool>(false);

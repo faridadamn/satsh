@@ -136,7 +136,7 @@ class ErrorLog extends ChangeNotifier {
   String report({int last = 30}) {
     final pick = entries.length > last ? entries.sublist(entries.length - last) : entries;
     final b = StringBuffer()
-      ..writeln('=== satsh error log ===')
+      ..writeln('=== aigen error log ===')
       ..writeln('versi: $appVersion')
       ..writeln('perangkat: ${_device.isEmpty ? Platform.operatingSystem : _device}')
       ..writeln('dibuat: ${DateTime.now().toIso8601String().substring(0, 19)}')
@@ -152,7 +152,7 @@ class ErrorLog extends ChangeNotifier {
 
   Future<File> reportFile() async {
     final d = await getTemporaryDirectory();
-    final f = File('${d.path}/satsh-error-log-${DateTime.now().millisecondsSinceEpoch}.txt');
+    final f = File('${d.path}/aigen-error-log-${DateTime.now().millisecondsSinceEpoch}.txt');
     await f.writeAsString(report(last: max));
     return f;
   }

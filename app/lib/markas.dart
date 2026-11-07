@@ -11,7 +11,7 @@ import 'ssh_manager.dart';
 import 'store.dart';
 
 /// Markas = shared workspace (targets, achievements, chat) for Adam and his agents.
-/// It lives on one of his servers as the `markas` CLI (SQLite); satsh talks to it over SSH.
+/// It lives on one of his servers as the `markas` CLI (SQLite); aigen talks to it over SSH.
 class Markas extends ChangeNotifier {
   Markas._();
   static final Markas i = Markas._();
@@ -118,14 +118,14 @@ class Markas extends ChangeNotifier {
   static const rapatPrompt = '''[Rapat Markas]
 Lu ketua rapat. Langkah:
 1. markas brief → lihat target aktif & PIC-nya.
-2. Buat tiap target aktif, minta update ke PIC-nya: hermes / agy → tanya_agent (pertanyaan singkat: target #ID, progress %, yang udah, kendala); muse → tanya_agent agent=muse lalu ikutin langkahnya (kalau kontrol HP ditolak/HP kekunci, lewatin Muse); satsh / web-designer → jawab sendiri dari riwayat & memori; adam → jangan ditanya, catat aja "nunggu update Adam".
+2. Buat tiap target aktif, minta update ke PIC-nya: hermes / agy → tanya_agent (pertanyaan singkat: target #ID, progress %, yang udah, kendala); muse → tanya_agent agent=muse lalu ikutin langkahnya (kalau kontrol HP ditolak/HP kekunci, lewatin Muse); aigen / web-designer → jawab sendiri dari riwayat & memori; adam → jangan ditanya, catat aja "nunggu update Adam".
 3. Catat tiap jawaban ke markas: log (target=ID) dan target_update kalau progress-nya jelas berubah.
 4. markas say rangkuman rapat (maks 8 baris) to=adam.
 5. Jawaban akhir: rangkuman yang sama — target mana yang jalan, yang mandek, dan 1-3 hal yang butuh keputusan Adam.''';
 
   /// Asks Hermes (on the Markas server) one question via its one-shot CLI.
   Future<String> askHermes(String prompt, {int timeoutS = 300}) async {
-    final full = '[Dari satsh lewat Markas — jawab singkat & jujur. Kalau ini soal progress, catat juga pakai skill markas.]\n$prompt';
+    final full = '[Dari aigen lewat Markas — jawab singkat & jujur. Kalau ini soal progress, catat juga pakai skill markas.]\n$prompt';
     final (code, so, se) = await exec('bash -lc ${q('hermes -z ${q(full)}')} </dev/null', timeoutS: timeoutS);
     if (code == 127 || se.contains('command not found')) throw 'Hermes ga ketemu di server Markas (perintah `hermes`).';
     if (code != 0 && so.trim().isEmpty) throw 'Hermes error (exit $code): ${se.trim()}';

@@ -235,7 +235,7 @@ class ServerPage extends StatelessWidget {
                       SwitchListTile(
                         secondary: const Icon(Icons.power_settings_new_rounded),
                         title: const Text('Nyala otomatis'),
-                        subtitle: Text('Tiap satsh dibuka', style: TextStyle(color: C.muted, fontSize: 12)),
+                        subtitle: Text('Tiap aigen dibuka', style: TextStyle(color: C.muted, fontSize: 12)),
                         value: s.autoStart,
                         onChanged: (v) => s.setConfig(autoStart: v),
                       ),
@@ -276,11 +276,11 @@ class ServerPage extends StatelessWidget {
                 _box(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    '• Yang masuk cuma bisa akses folder satsh + memori HP (Download, DCIM, dll) lewat folder "storage". '
+                    '• Yang masuk cuma bisa akses folder aigen + memori HP (Download, DCIM, dll) lewat folder "storage". '
                     'Ga bisa ngontrol aplikasi lain.\n'
                     '• Perintah yang ada: perintah bawaan Android (ls, cp, mv, cat, ping…).\n'
                     '• Login cuma pakai kunci dari pairing. Password ga bisa dipake.\n'
-                    '• Selama nyala ada notifikasi satsh. Baterai kepake dikit lebih banyak.',
+                    '• Selama nyala ada notifikasi aigen. Baterai kepake dikit lebih banyak.',
                     style: TextStyle(color: C.muted, fontSize: 13, height: 1.5),
                   ),
                 ),
@@ -322,7 +322,7 @@ class _RelayTile extends StatelessWidget {
 
   Future<void> _pickRelay(BuildContext context) async {
     final s = PhoneServer.i;
-    final hosts = Store.i.hostsSorted.where((h) => h.via.isEmpty && h.username != 'satsh').toList();
+    final hosts = Store.i.hostsSorted.where((h) => h.via.isEmpty && h.username != 'aigen').toList();
     await showSheet(
       context: context,
       useSafeArea: true,
@@ -473,7 +473,7 @@ class _QrSheetState extends State<_QrSheet> {
           const Text('Scan dari HP lain', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(
-            'Di HP lain: satsh → Tunnel → Mode Server → "sambung HP ini ke HP lain"',
+            'Di HP lain: aigen → Tunnel → Mode Server → "sambung HP ini ke HP lain"',
             textAlign: TextAlign.center,
             style: TextStyle(color: C.muted, fontSize: 13),
           ),
@@ -536,7 +536,7 @@ class _PairScanPageState extends State<PairScanPage> {
     if (_busy) return;
     final code = PairCode.parse(text);
     if (code == null) {
-      toast('Itu bukan kode pairing satsh', error: true);
+      toast('Itu bukan kode pairing aigen', error: true);
       return;
     }
     setState(() {
@@ -593,7 +593,7 @@ class _PairScanPageState extends State<PairScanPage> {
                     final t = d?.text ?? '';
                     if (!mounted) return;
                     if (t.isEmpty) {
-                      final v = await askText(this.context, 'Tempel kode', hint: 'satsh://pair/…');
+                      final v = await askText(this.context, 'Tempel kode', hint: 'aigen://pair/…');
                       if (v != null) _handle(v);
                     } else {
                       _handle(t);
@@ -621,7 +621,7 @@ class _PairScanPageState extends State<PairScanPage> {
                         onDetect: (cap) {
                           for (final b in cap.barcodes) {
                             final v = b.rawValue;
-                            if (v != null && v.startsWith('satsh://pair/')) {
+                            if (v != null && v.startsWith('aigen://pair/')) {
                               HapticFeedback.mediumImpact();
                               _handle(v);
                               return;

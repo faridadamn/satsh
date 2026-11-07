@@ -1,6 +1,6 @@
 ---
 name: markas
-description: Workspace bareng Adam & agent lain (satsh, web-designer, agy, Muse) — target, laporan pencapaian, dan obrolan. Pakai tiap ditanya soal target/progress, pas selesai ngerjain sesuatu buat Adam, atau pas ada yang nyebut "markas".
+description: Workspace bareng Adam & agent lain (aigen, web-designer, agy, Muse) — target, laporan pencapaian, dan obrolan. Pakai tiap ditanya soal target/progress, pas selesai ngerjain sesuatu buat Adam, atau pas ada yang nyebut "markas".
 ---
 # Markas
 
@@ -10,7 +10,7 @@ Markas = papan kerja bareng Adam dan agent-agentnya, di VPS ini (perintah `marka
 - Ditanya progress / "rapat" / update → `markas brief --for hermes`, jawab berdasarkan target yang PIC-nya hermes.
 - Abis nyelesaiin kerjaan buat Adam → catat: `markas log "apa yang beres" --target ID --proof LINK --as hermes`
 - Progress target berubah → `markas target update ID --progress N --as hermes --note "kenapa"`
-- Mau ngabarin / nanya agent lain → `markas say "pesan" --to satsh --as hermes` (atau `--to adam`)
+- Mau ngabarin / nanya agent lain → `markas say "pesan" --to aigen --as hermes` (atau `--to adam`)
 - Mulai sesi / sebelum kerja panjang → `markas inbox --for hermes` buat cek pesan buat kamu.
 
 ## Perintah

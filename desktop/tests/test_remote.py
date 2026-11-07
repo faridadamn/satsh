@@ -1,5 +1,5 @@
 """Remote (cloudflared): finds it by itself, downloads the right build (Win7 → 2023.10.0), clear errors,
-link only "ready" once it opens, an old satsh holding the port gets replaced.
+link only "ready" once it opens, an old aigen holding the port gets replaced.
 
     python tests/test_remote.py            # offline checks
     python tests/test_remote.py --online   # + real download from GitHub
@@ -12,13 +12,13 @@ import tempfile
 import threading
 import time
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshrm")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenrm")
 os.environ["PATH"] = "/usr/bin:/bin"  # no cloudflared on PATH
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh import remote  # noqa: E402
-from satsh.config import cfg  # noqa: E402
-from satsh.remote import Tunnel, cf_asset, find_cloudflared  # noqa: E402
+from aigen import remote  # noqa: E402
+from aigen.config import cfg  # noqa: E402
+from aigen.remote import Tunnel, cf_asset, find_cloudflared  # noqa: E402
 
 
 def ok(cond, msg):
@@ -111,7 +111,7 @@ def main(online):
         cfg.set("cloudflared", "")
 
     from http.server import BaseHTTPRequestHandler, HTTPServer
-    from satsh import server as srv
+    from aigen import server as srv
 
     class Old(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -131,12 +131,12 @@ def main(online):
     port = old.server_address[1]
     th = threading.Thread(target=lambda: (old.serve_forever(), old.server_close()))
     th.start()
-    ok(srv.running_version(port) == "", "old satsh detected (no /api/version)")
+    ok(srv.running_version(port) == "", "old aigen detected (no /api/version)")
     new = srv.take_over(port)
     ok(new is not None and new.server_address[1] == port, "old one asked to quit, new one took the port")
     new.server_close()
     th.join(5)
-    ok(srv.running_version(1) is None, "nothing on the port → not satsh")
+    ok(srv.running_version(1) is None, "nothing on the port → not aigen")
 
     if online:
         t = Tunnel()
@@ -144,7 +144,7 @@ def main(online):
         ok(wait(lambda: t.download and t.download.get("done"), 180), "download finished (%s)" % t.download)
         ok(not t.download.get("error"), "no download error")
         exe = find_cloudflared()
-        ok(exe == remote.cf_local(), "downloaded into ~/.satsh/bin and found automatically")
+        ok(exe == remote.cf_local(), "downloaded into ~/.aigen/bin and found automatically")
         v = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=30).stdout
         ok("cloudflared version" in v, "it runs: " + v.strip()[:60])
     print("REMOTE OK")

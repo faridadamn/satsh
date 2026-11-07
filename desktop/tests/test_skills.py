@@ -9,12 +9,12 @@ import subprocess
 import sys
 import tempfile
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshskill")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenskill")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh import presets, redact, skill_push  # noqa: E402
-from satsh.agent import Agent, RunCtx  # noqa: E402
-from satsh.brain import WORK_PRINCIPLES, Brain  # noqa: E402
+from aigen import presets, redact, skill_push  # noqa: E402
+from aigen.agent import Agent, RunCtx  # noqa: E402
+from aigen.brain import WORK_PRINCIPLES, Brain  # noqa: E402
 
 
 def ok(cond, msg):
@@ -125,7 +125,7 @@ def push():
         sk = b.skill("cek-server")
         st = skill_push.status(h)
         ok(st["hasAgent"] and skill_push.state_of(st, sk) == "missing", "missing before push")
-        ok(skill_push.push(h, sk) == "~/.hermes/skills/satsh/cek-server/SKILL.md", "pushed path")
+        ok(skill_push.push(h, sk) == "~/.hermes/skills/aigen/cek-server/SKILL.md", "pushed path")
         ok(skill_push.state_of(skill_push.status(h), sk) == "same", "same after push")
         mk = skill_push.markas_skill()
         ok(mk and skill_push.push(h, mk) == "~/.hermes/skills/markas/SKILL.md", "markas skill goes where install.sh puts it")
@@ -136,7 +136,7 @@ def push():
         st = skill_push.status(h)
         only = [r for r in st["remote"] if r["name"] not in {s["name"] for s in b.skills} | {"markas"}]
         ok([r["path"] for r in only] == ["devops/cek-log/SKILL.md"], "Hermes' own skill found in a category folder")
-        ok(b.save_skill(skill_push.pull(h, only[0]["path"])) == "cek-log", "pulled into satsh")
+        ok(b.save_skill(skill_push.pull(h, only[0]["path"])) == "cek-log", "pulled into aigen")
         ok(skill_push.hash_of(skill_push.prepare(sk["raw"])) == st["remote"][[r["name"] for r in st["remote"]].index("cek-server")]["hash"], "hash matches file")
     finally:
         skill_push.exec_override = None

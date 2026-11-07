@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 /// Built-in agent profiles shipped inside the app (assets/presets/ID/…).
-/// Same files ship with satsh desktop (desktop/satsh/presets/ID/…).
+/// Same files ship with aigen desktop (desktop/aigen/presets/ID/…).
 class Presets {
   Presets._();
   static const ids = ['web-designer', 'cybersecurity', 'devops', 'code-reviewer'];

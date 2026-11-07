@@ -10,13 +10,13 @@ import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshmod")
-os.environ["SATSH_GEN_DIR"] = tempfile.mkdtemp(prefix="gen")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenmod")
+os.environ["AIGEN_GEN_DIR"] = tempfile.mkdtemp(prefix="gen")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh import llm  # noqa: E402
-from satsh.agent import RunCtx, agent  # noqa: E402
-from satsh.config import cfg  # noqa: E402
+from aigen import llm  # noqa: E402
+from aigen.agent import RunCtx, agent  # noqa: E402
+from aigen.config import cfg  # noqa: E402
 
 PNG = b"\x89PNG\r\n\x1a\nfake"
 ROUTES = {}

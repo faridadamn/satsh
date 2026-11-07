@@ -209,7 +209,7 @@ class AgentController extends ChangeNotifier {
     final meta = pb.meta;
     final extra = Store.i.get<String>('agentPrompt', '').trim();
     final head = worker
-        ? 'Kamu sub-agent satsh. Kerjain SATU tugas yang dikasih sampai beres pakai tools, lalu balas dengan laporan ringkas & faktual (hasil, data penting, error). Jangan ngobrol.'
+        ? 'Kamu sub-agent aigen. Kerjain SATU tugas yang dikasih sampai beres pakai tools, lalu balas dengan laporan ringkas & faktual (hasil, data penting, error). Jangan ngobrol.'
         : pb.soul.trim();
     final who = brain.profiles.length > 1 && !worker
         ? '\n\n(Kamu lagi jalan sebagai profil agent "${meta.emoji} ${meta.name}"${meta.desc.isEmpty ? '' : ' — ${meta.desc}'}. Memori & skill di bawah punya profil ini; profil user dipakai bareng semua profil.)'
@@ -217,7 +217,7 @@ class AgentController extends ChangeNotifier {
     return '''$head$who
 
 # Tools & kemampuan
-- Kamu jalan di HP Android user (app satsh). Root storage HP: $phoneBase.
+- Kamu jalan di HP Android user (app aigen). Root storage HP: $phoneBase.
 - Tools: file HP, info/clipboard HP, buka URL, SSH exec + SFTP + transfer, Supabase (kalau diset), HTTP GET, browser (baca + LIHAT pakai screenshot), lihat file gambar (image_view), memori, skill, pencarian sesi lama, todo, sub-agent, jadwal.
 - Kamu bisa LIHAT gambar: foto yang user kirim, screenshot browser (browser_look), file gambar (image_view), dan layar HP user (phone_screen — cuma kalau user minta/perlu).
 - Kamu bisa bikin PROFIL AGENT baru (agent_profile): kalau user kirim screenshot thread/postingan/repo soal cara kerja agent tertentu, baca semua isinya (pakai mata), buka link/repo-nya kalau perlu (http_get/browser), tanya maks 3 hal yang bener-bener belum jelas, lalu bikin profil dengan soul yang tegas, skill dari prosedur/aturan di sumbernya, memori berisi link referensi, dan matiin tools yang ga relevan. Kalau sumbernya soal desain web / antislop, pakai copy_skills_from="preset:web-designer".
@@ -676,7 +676,7 @@ ${pb.skillsIndex()}''';
         history: hist,
         ctx: ctx,
         tools: tools,
-        system: '''Kamu modul refleksi untuk satsh agent. Baca transkrip, lalu putuskan apakah ada yang layak disimpan:
+        system: '''Kamu modul refleksi untuk aigen agent. Baca transkrip, lalu putuskan apakah ada yang layak disimpan:
 1. MEMORY (target=memory): fakta lingkungan/proyek yang bakal kepake lagi (path, nama service, cara restart, quirks).
 2. USER (target=user): preferensi, kebiasaan, koreksi dari user, info tentang user.
 3. SKILL: prosedur multi-langkah yang berhasil & kemungkinan diulang → skill_manage create (frontmatter name+description wajib). Kalau ada skill yang ternyata salah, patch.
@@ -865,7 +865,7 @@ ${pb.skillsIndex()}''',
       AgentTool(
         const ToolSpec(
           name: 'skill_push',
-          description: 'Kirim (push) skill satsh ke agent lain di server lewat SSH — sekarang: Hermes (~/.hermes/skills/satsh/<nama>/SKILL.md, '
+          description: 'Kirim (push) skill aigen ke agent lain di server lewat SSH — sekarang: Hermes (~/.hermes/skills/aigen/<nama>/SKILL.md, '
               'kepakai di sesi Hermes berikutnya). action: status (bandingin skill di sini vs di server) | push (names: daftar nama skill; '
               '"markas" = skill Markas bawaan buat Hermes). host: nama server (default: server Markas).',
           params: {
@@ -1033,7 +1033,7 @@ ${pb.skillsIndex()}''',
         AgentTool(
           const ToolSpec(
             name: 'markas',
-            description: 'MARKAS = workspace bareng Adam & agent-agentnya (satsh, web-designer, hermes, agy, muse): target, log pencapaian, obrolan. '
+            description: 'MARKAS = workspace bareng Adam & agent-agentnya (aigen, web-designer, hermes, agy, muse): target, log pencapaian, obrolan. '
                 'action: brief (ringkasan) | status | target_add (title, owner, deadline YYYY-MM-DD, metric) | target_update (id, progress 0-100, status aktif|selesai|ditunda|batal, owner, note) | '
                 'log (text, target, proof) | say (text, to, room) | read (room) | inbox (pesan buat lu). Nama lu di markas otomatis = nama profil.',
             params: {
@@ -1042,7 +1042,7 @@ ${pb.skillsIndex()}''',
                 'enum': ['brief', 'status', 'target_add', 'target_update', 'log', 'say', 'read', 'inbox']
               },
               'title': {'type': 'string'},
-              'owner': {'type': 'string', 'description': 'PIC: adam, satsh, web-designer, hermes, agy, muse'},
+              'owner': {'type': 'string', 'description': 'PIC: adam, aigen, web-designer, hermes, agy, muse'},
               'deadline': {'type': 'string'},
               'metric': {'type': 'string', 'description': 'ukuran sukses'},
               'id': {'type': 'integer', 'description': 'id target'},
@@ -1059,7 +1059,7 @@ ${pb.skillsIndex()}''',
           ),
           group: 'markas',
           (a) async {
-            final me = pb.id == 'default' ? 'satsh' : pb.id;
+            final me = pb.id == 'default' ? 'aigen' : pb.id;
             String? s(String k) => (a[k] == null || '${a[k]}'.trim().isEmpty) ? null : '${a[k]}'.trim();
             List<String> opt(Map<String, String?> m) => [for (final e in m.entries) if (e.value != null) ...['--${e.key}', e.value!]];
             final args = switch ('${a['action']}') {
@@ -1102,16 +1102,16 @@ ${pb.skillsIndex()}''',
                 return clip('Hermes:\n${await Markas.i.askHermes(msg)}');
               case 'agy':
                 final cfg = Providers.all().where((p) => p.isExternal && !p.disabled).firstOrNull;
-                if (cfg == null) return 'agy belum diset di satsh (Pengaturan → Agent → agent eksternal).';
+                if (cfg == null) return 'agy belum diset di aigen (Pengaturan → Agent → agent eksternal).';
                 ctx.onStatus?.call('Nanya ${cfg.name}…');
                 final h = <Msg>[Msg(role: 'user', text: msg)];
-                await ExternalAgent.run(cfg: cfg, prompt: '[Dari satsh lewat Markas — jawab singkat & jujur.]\n$msg', history: h);
+                await ExternalAgent.run(cfg: cfg, prompt: '[Dari aigen lewat Markas — jawab singkat & jujur.]\n$msg', history: h);
                 final ans = h.where((m) => m.role == 'assistant' && m.text.trim().isNotEmpty).map((m) => m.text).join('\n');
                 return clip('agy:\n${ans.isEmpty ? '(ga ada jawaban)' : ans}');
               case 'muse':
                 return 'Muse ga punya API — tanya lewat aplikasinya pakai kontrol HP:\n'
                     '1. phone_open_app name="Muse"\n'
-                    '2. cari kolom "Kirim pesan" (isian) → phone_type n=<nomornya> text=<pesan lu, awali "[Dari satsh/Markas]"> enter=true '
+                    '2. cari kolom "Kirim pesan" (isian) → phone_type n=<nomornya> text=<pesan lu, awali "[Dari aigen/Markas]"> enter=true '
                     '(kalau ga ke-enter, tap tombol kirim).\n'
                     '3. tunggu ~10-20 detik, phone_ui (atau phone_look) → baca jawaban Muse paling bawah; scroll kalau kepotong.\n'
                     '4. phone_key home.\n'

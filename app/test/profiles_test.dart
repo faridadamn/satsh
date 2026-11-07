@@ -5,12 +5,12 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/agent_zip.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/md_blocks.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/agent_zip.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/md_blocks.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<Brain> fresh() async {
@@ -120,7 +120,7 @@ void main() {
 
       final zip = await AgentZip.export(b, sessions: true, jobs: true);
       final names = ZipDecoder().decodeBytes(zip).files.map((f) => f.name).toSet();
-      expect(names, containsAll(['satsh-agent.json', 'USER.md', 'profiles/default/SOUL.md', 'profiles/payu/SOUL.md',
+      expect(names, containsAll(['aigen-agent.json', 'USER.md', 'profiles/default/SOUL.md', 'profiles/payu/SOUL.md',
           'profiles/payu/skills/deploy-payu/SKILL.md', 'sessions/aaaa-bbbb-1.json', 'cron.json']));
 
       // "other device"
@@ -145,10 +145,10 @@ void main() {
       final b = await fresh();
       expect(() => AgentZip.import(b, utf8.encode('nope')), throwsA(anything));
       final a = Archive()..addFile(ArchiveFile.bytes('hello.txt', utf8.encode('x')));
-      expect(() => AgentZip.import(b, ZipEncoder().encodeBytes(a)), throwsA(contains('satsh-agent.json')));
+      expect(() => AgentZip.import(b, ZipEncoder().encodeBytes(a)), throwsA(contains('aigen-agent.json')));
       final evil = Archive()
-        ..addFile(ArchiveFile.bytes('satsh-agent.json', utf8.encode(jsonEncode({
-          'format': 'satsh-agent',
+        ..addFile(ArchiveFile.bytes('aigen-agent.json', utf8.encode(jsonEncode({
+          'format': 'aigen-agent',
           'version': 1,
           'profiles': [{'id': '../../etc', 'name': 'x'}, {'id': 'ok', 'name': 'ok'}],
         }))))

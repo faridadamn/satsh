@@ -2,7 +2,7 @@
 /// user SEES while the agent works: tool chips, status line, narration between
 /// tool calls. What the model receives is untouched, so tools keep working.
 ///
-/// Same rules as desktop/satsh/redact.py — keep them in sync.
+/// Same rules as desktop/aigen/redact.py — keep them in sync.
 class Redact {
   Redact._();
 

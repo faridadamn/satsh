@@ -5,11 +5,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/diag.dart';
-import 'package:satsh/pages/cek_hp_page.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/diag.dart';
+import 'package:aigen/pages/cek_hp_page.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Map<String, dynamic> phone({double? health = 92, int pct = 70, bool root = false, String vb = 'green', String patch = '2026-08-01'}) {
@@ -107,7 +107,7 @@ void main() {
     });
 
     test('logs without adb grant explain how; with grant they are included', () async {
-      DiagSource.logs = (w) async => 'NEED_GRANT: adb shell pm grant id.adam.satsh android.permission.READ_LOGS';
+      DiagSource.logs = (w) async => 'NEED_GRANT: adb shell pm grant id.adam.aigen android.permission.READ_LOGS';
       expect(await tool.run({'logs': 'crash'}), contains('adb shell pm grant'));
       DiagSource.logs = (w) async => '10-06 07:24 E AndroidRuntime: FATAL EXCEPTION: main';
       expect(await tool.run({'logs': 'crash'}), contains('FATAL EXCEPTION'));

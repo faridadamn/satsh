@@ -1,10 +1,10 @@
 ---
 name: web-build
-description: Alur bikin halaman web di satsh — tulis file, preview di browser agent, screenshot & benerin, lalu kirim/deploy. Pakai tiap kali bikin atau ngedit UI web.
+description: Alur bikin halaman web di aigen — tulis file, preview di browser agent, screenshot & benerin, lalu kirim/deploy. Pakai tiap kali bikin atau ngedit UI web.
 ---
 # Bikin web: tulis → lihat → benerin
 
-1. **Folder project**: di HP `Download/satsh-web/<nama-project>/` (phone_mkdir/phone_write); di laptop (satsh desktop) folder pilihan user (fs_write). Isi minimal: `index.html`, `DESIGN.md`, `AGENTS.md`. CSS/JS boleh inline biar 1 file, atau `style.css`/`main.js`.
+1. **Folder project**: di HP `Download/aigen-web/<nama-project>/` (phone_mkdir/phone_write); di laptop (aigen desktop) folder pilihan user (fs_write). Isi minimal: `index.html`, `DESIGN.md`, `AGENTS.md`. CSS/JS boleh inline biar 1 file, atau `style.css`/`main.js`.
    - Font/ikon dari CDN boleh (Google Fonts, dll).
 2. **Tulis kode** sesuai DESIGN.md + aturan antislop (antislop-ui, antislop-layoutmobile, antislop-human). Semantic HTML, state hover/focus/active, kontras cukup.
 3. **Preview** (di HP): `web_preview` path folder project → kebuka di browser agent. Di laptop: buka file-nya di browser user (open_path) dan minta user cek / screenshot.

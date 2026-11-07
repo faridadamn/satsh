@@ -6,10 +6,10 @@ import tempfile
 import threading
 import time
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="ui")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="ui")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from satsh import server  # noqa: E402
-from satsh.agent import agent  # noqa: E402
+from aigen import server  # noqa: E402
+from aigen.agent import agent  # noqa: E402
 
 try:
     from playwright.sync_api import sync_playwright

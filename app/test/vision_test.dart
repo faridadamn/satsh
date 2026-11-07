@@ -5,8 +5,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/agent/providers.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/agent/providers.dart';
 
 void main() {
   late String img1, img2;

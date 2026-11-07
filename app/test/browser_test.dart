@@ -3,9 +3,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/browser.dart';
-import 'package:satsh/vision.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/browser.dart';
+import 'package:aigen/vision.dart';
 
 class FakeBackend implements BrowserBackend {
   int shots = 0;
@@ -41,12 +41,12 @@ class FakeBackend implements BrowserBackend {
   @override
   Future<Object?> js(String code) async {
     scripts.add(code);
-    if (code.contains('data-satsh-n="1"') && code.contains('click()')) {
+    if (code.contains('data-aigen-n="1"') && code.contains('click()')) {
       page = 'b';
       navigating = true;
       return jsonEncode(jsonEncode({'ok': true, 't': 'Ke B'}));
     }
-    if (code.contains('data-satsh-n="2"')) return jsonEncode({'ok': false, 'err': 'blocked'});
+    if (code.contains('data-aigen-n="2"')) return jsonEncode({'ok': false, 'err': 'blocked'});
     if (code.contains('scrollBy')) return jsonEncode({'y': 500});
     if (code.contains('createTreeWalker')) {
       return code.contains('"zzz"') ? jsonEncode({'count': 0}) : jsonEncode({'count': 3, 'at': 2, 'ctx': ['harga Rp 10.000', 'harga promo']});
@@ -55,12 +55,12 @@ class FakeBackend implements BrowserBackend {
     if (code.contains('navigator.userAgent')) {
       return code.contains('if(1>0)') ? jsonEncode({'ok': true, 'url': 'https://b.test/f.pdf', 'page': 'https://a.test/', 'ua': 'UA'}) : jsonEncode({'ok': false});
     }
-    if (code.contains('satsh-marks') && code.contains('vis.push')) {
+    if (code.contains('aigen-marks') && code.contains('vis.push')) {
       return jsonEncode({'iw': 360, 'ih': 240, 'sy': 0, 'sh': 1200, 'vis': [1]});
     }
     if (code.contains('innerWidth')) return jsonEncode({'iw': 360, 'ih': 240, 'sy': 0, 'sh': 1200});
     if (code.contains('elementFromPoint')) return jsonEncode({'ok': true, 'field': true, 'tag': 'input', 't': 'Cari'});
-    if (code.contains("getElementById('satsh-marks')")) return '"1"';
+    if (code.contains("getElementById('aigen-marks')")) return '"1"';
     return jsonEncode(jsonEncode(snap())); // Android double-quotes strings
   }
 
@@ -158,7 +158,7 @@ void main() {
       expect(out, contains('[1] a "Ke B"'));
       expect(out, isNot(contains('[2]'))); // not in view
       expect(b.expanded, isTrue); // bigger panel = better picture
-      expect(fake.scripts.last, contains("getElementById('satsh-marks')")); // marks removed after
+      expect(fake.scripts.last, contains("getElementById('aigen-marks')")); // marks removed after
     });
 
     test('tap maps image pixels to CSS pixels', () async {

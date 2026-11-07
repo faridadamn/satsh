@@ -1,13 +1,13 @@
-// Mode Server end-to-end: real satshd (host build) + local OpenSSH as "VPS".
+// Mode Server end-to-end: real aigend (host build) + local OpenSSH as "VPS".
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/models.dart';
-import 'package:satsh/phone_server.dart';
-import 'package:satsh/ssh_manager.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/phone_server.dart';
+import 'package:aigen/ssh_manager.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ssh_integration_test.dart' show FakePrompts, waitFor, screen;
@@ -23,7 +23,7 @@ void main() {
     await Store.i.load();
     SshManager.i.prompts = FakePrompts();
     tmp = await Directory.systemTemp.createTemp('srv');
-    PhoneServer.binaryOverride = '/tmp/satshd-x86';
+    PhoneServer.binaryOverride = '/tmp/aigend-x86';
     PhoneServer.dirOverride = tmp.path;
     PhoneServer.shellOverride = '/bin/sh';
     Store.i.set('srvPort', 22099);
@@ -102,9 +102,9 @@ void main() {
 
   test('pair code survives round trip, rejects junk', () {
     expect(PairCode.parse('halo'), isNull);
-    expect(PairCode.parse('satsh://pair/!!!'), isNull);
+    expect(PairCode.parse('aigen://pair/!!!'), isNull);
     final enc = base64Url.encode(utf8.encode(jsonEncode({'t': 'abcdefgh12', 'n': 'x', 'p': 1}))).replaceAll('=', '');
-    expect(PairCode.parse('cek ini satsh://pair/$enc ya')!.token, 'abcdefgh12');
+    expect(PairCode.parse('cek ini aigen://pair/$enc ya')!.token, 'abcdefgh12');
   });
 
   test('stop kills server and relay', () async {

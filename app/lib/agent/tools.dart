@@ -811,7 +811,7 @@ final List<AgentTool> allTools = [
     ),
     group: 'web',
     (a) async {
-      final r = await http.get(Uri.parse(a['url']), headers: {'User-Agent': 'satsh-agent'}).timeout(const Duration(seconds: 30));
+      final r = await http.get(Uri.parse(a['url']), headers: {'User-Agent': 'aigen-agent'}).timeout(const Duration(seconds: 30));
       var body = utf8.decode(r.bodyBytes, allowMalformed: true);
       if ((r.headers['content-type'] ?? '').contains('html')) {
         body = body
@@ -970,7 +970,7 @@ final List<AgentTool> allTools = [
   AgentTool(
     const ToolSpec(
       name: 'browser_download',
-      description: 'Download file ke HP (folder Download/satsh) pakai sesi login browser agen. '
+      description: 'Download file ke HP (folder Download/aigen) pakai sesi login browser agen. '
           'Isi n = nomor elemen link/gambar/video, ATAU url langsung. name opsional buat nama file.',
       params: {
         'n': {'type': 'integer'},
@@ -982,7 +982,7 @@ final List<AgentTool> allTools = [
     risky: true,
     (a) async {
       final br = ResearchBrowser.i;
-      String url, ua = 'Mozilla/5.0 (Linux; Android) satsh', referer = '';
+      String url, ua = 'Mozilla/5.0 (Linux; Android) aigen', referer = '';
       if ((a['url'] as String?)?.trim().isNotEmpty == true) {
         url = (a['url'] as String).trim();
         if (br.active) {
@@ -1025,7 +1025,7 @@ final List<AgentTool> allTools = [
         }
         name = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
         if (name.isEmpty) name = 'download_${DateTime.now().millisecondsSinceEpoch}';
-        final dir = Directory('$phoneBase/Download/satsh');
+        final dir = Directory('$phoneBase/Download/aigen');
         await dir.create(recursive: true);
         var f = File('${dir.path}/$name');
         for (var k = 1; f.existsSync(); k++) {
@@ -1062,7 +1062,7 @@ final List<AgentTool> allTools = [
       description: 'Preview halaman web yang lu bikin di HP: sajikan folder project (atau file .html) lewat server lokal, '
           'terus buka di browser agen. Abis itu cek pakai browser_look. Panggil lagi setelah ngedit file buat refresh.',
       params: {
-        'path': {'type': 'string', 'description': 'Folder project atau file .html di HP, mis. Download/satsh-web/toko-kopi'},
+        'path': {'type': 'string', 'description': 'Folder project atau file .html di HP, mis. Download/aigen-web/toko-kopi'},
       },
       required: ['path'],
     ),

@@ -6,12 +6,12 @@ import 'native.dart';
 import 'store.dart';
 import 'vision.dart';
 
-/// The agent driving other apps through satsh's Accessibility service.
+/// The agent driving other apps through aigen's Accessibility service.
 /// Every action returns the screen as it looks afterwards.
 class PhoneControl {
   PhoneControl._();
   static final PhoneControl i = PhoneControl._();
-  static const _ch = MethodChannel('satsh/native');
+  static const _ch = MethodChannel('aigen/native');
 
   /// Package-name keywords the agent may never touch. Editable in settings.
   static const defaultBlock = [
@@ -52,8 +52,8 @@ class PhoneControl {
   /// Last marked screenshot: image px ↔ screen px.
   ({int w, int h, int sw, int sh})? _geo;
 
-  static const offMsg = 'Kontrol HP belum nyala. Gw udah bukain Pengaturan → Aksesibilitas. Kasih tau user: pilih "satsh · kontrol agent" → nyalain. '
-      'Kalau tombolnya abu-abu (Android 13+): Info aplikasi satsh → menu ⋮ kanan atas → "Izinkan setelan terbatas", terus ulangi.';
+  static const offMsg = 'Kontrol HP belum nyala. Gw udah bukain Pengaturan → Aksesibilitas. Kasih tau user: pilih "aigen · kontrol agent" → nyalain. '
+      'Kalau tombolnya abu-abu (Android 13+): Info aplikasi aigen → menu ⋮ kanan atas → "Izinkan setelan terbatas", terus ulangi.';
 
   Future<T> _call<T>(String m, [Map<String, dynamic>? a]) async {
     try {

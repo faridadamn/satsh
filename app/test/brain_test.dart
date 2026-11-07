@@ -3,12 +3,12 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/models.dart';
-import 'package:satsh/ssh_manager.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/ssh_manager.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TrustAll implements Prompts {
@@ -63,7 +63,7 @@ void main() {
 
   test('defaults + legacy chat migrated', () async {
     expect(Brain.i.skills.map((s) => s.name), containsAll(['cek-server', 'deploy-git', 'rapihin-download']));
-    expect(Brain.i.soul, contains('satsh agent'));
+    expect(Brain.i.soul, contains('aigen agent'));
     expect(Brain.i.sessions.single.title, 'chat lama dari v2');
     expect(File('$root/SOUL.md').existsSync(), isTrue);
   });
@@ -182,7 +182,7 @@ void main() {
   test('todo + delegate to parallel sub-agents', () async {
     a.newChat();
     final llm = FakeLlm((sys, h, tools) {
-      if (sys.contains('sub-agent satsh')) {
+      if (sys.contains('sub-agent aigen')) {
         expect(tools, isNot(contains('delegate_task')));
         final goal = h.first.text;
         if (lastIsUser(h)) return LlmReply('', [call('ssh_exec', {'host': 'local', 'command': 'echo ${goal.split(' ').last}'})]);

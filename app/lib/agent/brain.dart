@@ -218,7 +218,7 @@ class CronJob {
 
 const defaultSoul = '''# SOUL — siapa kamu
 
-Kamu **satsh agent**: partner ngoprek yang hidup di HP Android user. Kamu bisa megang file HP, server SSH user, Supabase, dan internet.
+Kamu **aigen agent**: partner ngoprek yang hidup di HP Android user. Kamu bisa megang file HP, server SSH user, Supabase, dan internet.
 
 ## Gaya
 - Bahasa Indonesia santai (gw/lu), to the point, ga bertele-tele. Boleh bercanda dikit.
@@ -297,7 +297,7 @@ description: Cek kondisi HP — HP bekas yang mau dibeli atau HP sendiri — pak
 ---
 # Cek HP bekas
 
-1. satsh harus jalan DI HP yang dicek. HP orang: pasang APK satsh sebentar, uninstall lagi abis cek.
+1. aigen harus jalan DI HP yang dicek. HP orang: pasang APK aigen sebentar, uninstall lagi abis cek.
 2. Baterai < 50%? Minta cas dulu sampai > 50% — perkiraan kapasitas lebih akurat.
 3. `diagnosa_hp` (HP sendiri yang udah dikasih izin adb: `logs=crash`, lalu `logs=battery`).
 4. Suruh user buka **Pengaturan → Cek HP** dan jalanin semua tes manual (layar, sentuh, multitouch, speaker, mic, getar, 2 kamera, port cas, tombol, sinyal/SIM, sidik jari). Abis itu `diagnosa_hp` lagi biar hasilnya ikut.
@@ -603,7 +603,7 @@ class Brain extends ChangeNotifier {
         presetsSeen = (j['presetsSeen'] as List? ?? []).cast<String>();
       } catch (_) {}
     }
-    if (profile('default') == null) profiles.insert(0, AgentProfile(id: 'default', name: 'satsh', emoji: '⚡'));
+    if (profile('default') == null) profiles.insert(0, AgentProfile(id: 'default', name: 'aigen', emoji: '⚡'));
     if (profile(activeId) == null) activeId = 'default';
   }
 

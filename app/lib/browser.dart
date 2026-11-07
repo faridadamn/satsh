@@ -507,7 +507,7 @@ class ResearchBrowser extends ChangeNotifier {
 
   // --------------------------------------------------------------------- JS
   static const snapshotJs = r'''(function(){
-document.querySelectorAll('[data-satsh-n]').forEach(function(e){e.removeAttribute('data-satsh-n')});
+document.querySelectorAll('[data-aigen-n]').forEach(function(e){e.removeAttribute('data-aigen-n')});
 function vis(e){var r=e.getBoundingClientRect();var s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none';}
 var els=[],n=0;
 document.querySelectorAll('a[href],button,input,textarea,select,[role=button],[role=link],[role=searchbox],[onclick]').forEach(function(e){
@@ -517,7 +517,7 @@ document.querySelectorAll('a[href],button,input,textarea,select,[role=button],[r
  var t=(e.innerText||e.value||e.getAttribute('aria-label')||e.getAttribute('placeholder')||e.getAttribute('title')||e.getAttribute('alt')||'').trim().replace(/\s+/g,' ').slice(0,80);
  if(!t&&tag==='a')t=(e.getAttribute('href')||'').slice(0,60);
  if(!t&&tag!=='input'&&tag!=='textarea'&&tag!=='select')return;
- n++;e.setAttribute('data-satsh-n',n);
+ n++;e.setAttribute('data-aigen-n',n);
  els.push({n:n,tag:tag,type:type,t:t,href:tag==='a'?String(e.href).slice(0,300):null});
 });
 var text=(document.body?document.body.innerText:'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').slice(0,200000);
@@ -525,7 +525,7 @@ return JSON.stringify({url:location.href,title:document.title,text:text,els:els,
 })()''';
 
   static String clickJs(int n) => '''(function(){
-var e=document.querySelector('[data-satsh-n="$n"]');
+var e=document.querySelector('[data-aigen-n="$n"]');
 if(!e)return JSON.stringify({ok:false});
 e.scrollIntoView({block:'center'});
 var o=e.style.outline;e.style.outline='3px solid #7C5CFF';setTimeout(function(){e.style.outline=o},1600);
@@ -536,7 +536,7 @@ return JSON.stringify({ok:true,t:t});
 })()''';
 
   static String typeJs(int n, String text, bool submit) => '''(function(){
-var e=$n===0?document.activeElement:document.querySelector('[data-satsh-n="$n"]');
+var e=$n===0?document.activeElement:document.querySelector('[data-aigen-n="$n"]');
 if(!e||e===document.body)return JSON.stringify({ok:false,err:'ga ketemu'});
 var tag=e.tagName;
 if(tag!=='INPUT'&&tag!=='TEXTAREA')return JSON.stringify({ok:false,err:'bukan kolom isian'});
@@ -560,14 +560,14 @@ return JSON.stringify({ok:true});
       '(function(){return JSON.stringify({iw:innerWidth,ih:innerHeight,sy:scrollY,sh:document.documentElement.scrollHeight});})()';
 
   static const marksJs = r'''(function(){
-var old=document.getElementById('satsh-marks');if(old)old.remove();
-var box=document.createElement('div');box.id='satsh-marks';
+var old=document.getElementById('aigen-marks');if(old)old.remove();
+var box=document.createElement('div');box.id='aigen-marks';
 box.style.cssText='position:fixed;left:0;top:0;width:0;height:0;z-index:2147483647;pointer-events:none';
 var vis=[],iw=innerWidth,ih=innerHeight;
-document.querySelectorAll('[data-satsh-n]').forEach(function(e){
+document.querySelectorAll('[data-aigen-n]').forEach(function(e){
  var r=e.getBoundingClientRect();
  if(r.width<1||r.height<1||r.bottom<0||r.top>ih||r.right<0||r.left>iw)return;
- var n=e.getAttribute('data-satsh-n');vis.push(+n);
+ var n=e.getAttribute('data-aigen-n');vis.push(+n);
  var o=document.createElement('div');
  o.style.cssText='position:fixed;box-sizing:border-box;border:2px solid #7C5CFF;border-radius:3px;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;height:'+r.height+'px';
  var l=document.createElement('div');l.textContent=n;
@@ -578,7 +578,7 @@ document.documentElement.appendChild(box);
 return JSON.stringify({iw:iw,ih:ih,sy:scrollY,sh:document.documentElement.scrollHeight,vis:vis});
 })()''';
 
-  static const unmarkJs = "(function(){var o=document.getElementById('satsh-marks');if(o)o.remove();return '1';})()";
+  static const unmarkJs = "(function(){var o=document.getElementById('aigen-marks');if(o)o.remove();return '1';})()";
 
   static String tapJs(num x, num y) => '''(function(){
 var x=$x,y=$y,e=document.elementFromPoint(x,y);
@@ -624,7 +624,7 @@ return JSON.stringify({ok:(document.body?document.body.innerText:'').toLowerCase
 
   static String linkJs(int n) => '''(function(){
 var u='';
-if($n>0){var e=document.querySelector('[data-satsh-n="$n"]');if(!e)return JSON.stringify({ok:false});
+if($n>0){var e=document.querySelector('[data-aigen-n="$n"]');if(!e)return JSON.stringify({ok:false});
  var a=e.closest?e.closest('a[href]'):null;
  u=(a&&a.href)||e.href||e.currentSrc||e.src||(e.querySelector&&((e.querySelector('a[href]')||{}).href||(e.querySelector('img,video,source')||{}).src))||'';}
 else u=location.href;

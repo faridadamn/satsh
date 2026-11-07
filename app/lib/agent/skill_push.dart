@@ -24,7 +24,7 @@ class SkillTarget {
   final String Function(String skill) dirFor;
 }
 
-/// Skill state on the server compared to satsh.
+/// Skill state on the server compared to aigen.
 enum PushState { same, differs, missing }
 
 class RemoteSkill {
@@ -53,13 +53,13 @@ class PushStatus {
   List<RemoteSkill> onlyRemote(Iterable<String> local) => remote.where((r) => !local.contains(r.name)).toList();
 }
 
-/// Pushes satsh skills to other agents over SSH (and pulls theirs back).
+/// Pushes aigen skills to other agents over SSH (and pulls theirs back).
 /// Hermes Agent reads `~/.hermes/skills/<category>/<name>/SKILL.md` and picks up
 /// new skills on its next session.
 class SkillPush {
   SkillPush._();
 
-  static final hermes = SkillTarget('hermes', 'Hermes', r'$HOME/.hermes/skills', (n) => n == 'markas' ? 'markas' : 'satsh/$n');
+  static final hermes = SkillTarget('hermes', 'Hermes', r'$HOME/.hermes/skills', (n) => n == 'markas' ? 'markas' : 'aigen/$n');
   static final targets = {hermes.id: hermes};
 
   /// For tests: run [cmd] somewhere else (exit code, stdout, stderr).
@@ -86,7 +86,7 @@ class SkillPush {
     return (s.exitCode ?? -1, utf8.decode(out.takeBytes(), allowMalformed: true), utf8.decode(err.takeBytes(), allowMalformed: true));
   }
 
-  /// The Markas skill for Hermes that ships with satsh (assets/markas/hermes-SKILL.md).
+  /// The Markas skill for Hermes that ships with aigen (assets/markas/hermes-SKILL.md).
   static Future<Skill?> markasSkill() async {
     try {
       return Brain.parseSkill(await rootBundle.loadString('assets/markas/hermes-SKILL.md'), fallbackName: 'markas');
@@ -138,13 +138,13 @@ class SkillPush {
     final dir = '${t.root}/${t.dirFor(skill.name)}';
     final b64 = base64.encode(utf8.encode(text));
     final cmd = 'D="$dir"; mkdir -p "\$D" && printf %s ${q(b64)} | base64 -d > "\$D/SKILL.md.tmp" && mv "\$D/SKILL.md.tmp" "\$D/SKILL.md" && '
-        'printf %s ${q(jsonEncode({'from': 'satsh', 'name': skill.name, 'sha256': hashOf(text), 'at': DateTime.now().toIso8601String().substring(0, 19)}))} > "\$D/.satsh-push.json" && echo PUSHED';
+        'printf %s ${q(jsonEncode({'from': 'aigen', 'name': skill.name, 'sha256': hashOf(text), 'at': DateTime.now().toIso8601String().substring(0, 19)}))} > "\$D/.aigen-push.json" && echo PUSHED';
     final (code, so, se) = await _exec(h, cmd);
     if (code != 0 || !so.contains('PUSHED')) throw 'Push "${skill.name}" gagal: ${se.trim().isEmpty ? 'exit $code' : se.trim()}';
     return '${t.root.replaceFirst(r'$HOME', '~')}/${t.dirFor(skill.name)}/SKILL.md';
   }
 
-  /// Reads a skill from the server (to save it into satsh — user action).
+  /// Reads a skill from the server (to save it into aigen — user action).
   static Future<String> pull(Host h, RemoteSkill r, {SkillTarget? target}) async {
     final t = target ?? hermes;
     if (r.path.contains('..')) throw 'Path aneh';

@@ -158,7 +158,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final json = await s.exportJson(withSecrets: withSecrets);
     final d = DateTime.now();
     final uri = await FilePicker.saveFile(
-      fileName: 'satsh-backup-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.json',
+      fileName: 'aigen-backup-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.json',
       bytes: Uint8List.fromList(utf8.encode(json)),
       mimeType: 'application/json',
     );
@@ -320,7 +320,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                   subtitle: Text(
                       _control
                           ? 'Tiap aksi tetap minta izin. Selama agent gerak ada tombol STOP mengambang.'
-                          : 'Nyalain "satsh · kontrol agent" di Aksesibilitas biar agent bisa tap/ketik di app lain.',
+                          : 'Nyalain "aigen · kontrol agent" di Aksesibilitas biar agent bisa tap/ketik di app lain.',
                       style: TextStyle(color: C.muted, fontSize: 12)),
                 ),
                 Row(children: [
@@ -418,7 +418,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                 ),
                 TextButton(
                   onPressed: () => Permission.ignoreBatteryOptimizations.request(),
-                  child: const Text('Matiin optimasi baterai buat satsh'),
+                  child: const Text('Matiin optimasi baterai buat aigen'),
                 ),
               ]),
               _h('Tampilan', Icons.palette_rounded),

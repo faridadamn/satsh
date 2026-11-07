@@ -122,8 +122,8 @@ class _SkillPushSheetState extends State<SkillPushSheet> {
       builder: (c, scroll) => ListView(controller: scroll, padding: const EdgeInsets.fromLTRB(20, 4, 20, 20), children: [
         const Text('Push skill ke Hermes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        Text('Skill profil ${Brain.i.activeProfile.emoji} ${Brain.i.activeProfile.name} dikirim lewat SSH ke ~/.hermes/skills/satsh/<nama>/. '
-            'Hermes pakai mulai sesi berikutnya. Tool khusus satsh (phone_*, browser_*) ga ada di Hermes — skill yang isinya prosedur shell/CLI paling cocok.',
+        Text('Skill profil ${Brain.i.activeProfile.emoji} ${Brain.i.activeProfile.name} dikirim lewat SSH ke ~/.hermes/skills/aigen/<nama>/. '
+            'Hermes pakai mulai sesi berikutnya. Tool khusus aigen (phone_*, browser_*) ga ada di Hermes — skill yang isinya prosedur shell/CLI paling cocok.',
             style: TextStyle(color: C.muted, fontSize: 12.5)),
         const SizedBox(height: 12),
         if (hosts.isEmpty)
@@ -160,7 +160,7 @@ class _SkillPushSheetState extends State<SkillPushSheet> {
                 const SizedBox(width: 8),
                 _state(st.of(s)),
               ]),
-              subtitle: Text(s.name == 'markas' && identical(s, _markas) ? 'Skill Markas bawaan satsh buat Hermes' : s.description,
+              subtitle: Text(s.name == 'markas' && identical(s, _markas) ? 'Skill Markas bawaan aigen buat Hermes' : s.description,
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: C.muted, fontSize: 12)),
             ),
           const SizedBox(height: 8),

@@ -6,11 +6,11 @@ import os
 import sys
 import tempfile
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshloop")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenloop")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh.agent import ERROR_STREAK_LIMIT, SAME_CALL_LIMIT, STEP_LIMIT_TEXT, STUCK_PREFIX, RunCtx, agent  # noqa: E402
-from satsh.llm import Reply  # noqa: E402
+from aigen.agent import ERROR_STREAK_LIMIT, SAME_CALL_LIMIT, STEP_LIMIT_TEXT, STUCK_PREFIX, RunCtx, agent  # noqa: E402
+from aigen.llm import Reply  # noqa: E402
 
 
 class Fake:

@@ -82,7 +82,7 @@ class _SoulTabState extends State<_SoulTab> {
           ),
           PopupMenuButton<String>(
             onSelected: (_) async {
-              if (await confirm(context, 'Reset SOUL?', 'Balik ke kepribadian bawaan satsh.', ok: 'Reset')) {
+              if (await confirm(context, 'Reset SOUL?', 'Balik ke kepribadian bawaan aigen.', ok: 'Reset')) {
                 await Brain.i.saveSoul(defaultSoul);
                 _ctl.text = Brain.i.soul;
               }

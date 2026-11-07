@@ -32,14 +32,14 @@ jobs:
         run: flutter pub get
 
       # Release signing: isi 4 secrets di repo Settings → Secrets → Actions.
-      # ANDROID_KEYSTORE_B64 = base64 dari file satsh-release.jks
+      # ANDROID_KEYSTORE_B64 = base64 dari file aigen-release.jks
       # KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD = isinya key.properties
       - name: Restore keystore (release)
         run: |
           if [ -z "$ANDROID_KEYSTORE_B64" ]; then echo "skip: no keystore secret"; exit 0; fi
-          echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/app/satsh-release.jks
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/app/aigen-release.jks
           cat > android/key.properties <<EOF
-          storeFile=satsh-release.jks
+          storeFile=aigen-release.jks
           storePassword=$KEYSTORE_PASSWORD
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
@@ -56,6 +56,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: satsh-release-apk
+          name: aigen-release-apk
           path: app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           retention-days: 30

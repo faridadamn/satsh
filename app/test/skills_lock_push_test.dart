@@ -5,13 +5,13 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/presets.dart';
-import 'package:satsh/agent/skill_push.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/models.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/presets.dart';
+import 'package:aigen/agent/skill_push.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<Brain> fresh() async {
@@ -159,10 +159,10 @@ void main() {
       expect(st.of(pb.skill('cek-server')!), PushState.missing);
 
       final path = await SkillPush.push(h, pb.skill('cek-server')!);
-      expect(path, '~/.hermes/skills/satsh/cek-server/SKILL.md');
-      final f = File('${home.path}/.hermes/skills/satsh/cek-server/SKILL.md');
+      expect(path, '~/.hermes/skills/aigen/cek-server/SKILL.md');
+      final f = File('${home.path}/.hermes/skills/aigen/cek-server/SKILL.md');
       expect(f.readAsStringSync(), contains('version: 1.0.0'));
-      expect(jsonDecode(File('${home.path}/.hermes/skills/satsh/cek-server/.satsh-push.json').readAsStringSync())['from'], 'satsh');
+      expect(jsonDecode(File('${home.path}/.hermes/skills/aigen/cek-server/.aigen-push.json').readAsStringSync())['from'], 'aigen');
 
       st = await SkillPush.status(h);
       expect(st.of(pb.skill('cek-server')!), PushState.same);
@@ -189,9 +189,9 @@ void main() {
       final st = await t.run({'action': 'status', 'host': 'VPS'});
       expect(st, contains('cek-server: belum ada'));
       final out = await t.run({'action': 'push', 'host': 'VPS', 'names': ['cek-server', 'deploy-git', 'ga-ada']});
-      expect(out, contains('cek-server → ~/.hermes/skills/satsh/cek-server/SKILL.md'));
+      expect(out, contains('cek-server → ~/.hermes/skills/aigen/cek-server/SKILL.md'));
       expect(out, contains('ga-ada: ga ada'));
-      expect(File('${home.path}/.hermes/skills/satsh/deploy-git/SKILL.md').existsSync(), isTrue);
+      expect(File('${home.path}/.hermes/skills/aigen/deploy-git/SKILL.md').existsSync(), isTrue);
       expect(await t.run({'action': 'status', 'host': 'VPS'}), contains('cek-server: sama'));
       expect(b.active.skill('cek-server'), isNotNull);
     });

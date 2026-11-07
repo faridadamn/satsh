@@ -24,7 +24,7 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
   Future<void> _send() async {
     try {
       final f = await ErrorLog.i.reportFile();
-      await SharePlus.instance.share(ShareParams(files: [XFile(f.path)], text: 'Log error satsh $appVersion'));
+      await SharePlus.instance.share(ShareParams(files: [XFile(f.path)], text: 'Log error aigen $appVersion'));
     } catch (e) {
       toast('Gagal kirim: $e', error: true);
     }
@@ -39,7 +39,7 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
     final last = ErrorLog.i.entries.reversed.take(3).map((e) => e.toText()).join('\n---\n');
     Navigator.pop(context);
     AgentController.i.newChat();
-    AgentController.i.send('Tolong baca log error satsh ini dan jelasin kira-kira apa penyebabnya (bug app, provider, atau jaringan) '
+    AgentController.i.send('Tolong baca log error aigen ini dan jelasin kira-kira apa penyebabnya (bug app, provider, atau jaringan) '
         'dan apa yang bisa gw lakuin sekarang:\n\n```\n$last\n```');
   }
 

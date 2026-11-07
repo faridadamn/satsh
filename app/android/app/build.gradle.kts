@@ -6,7 +6,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Release signing: android/key.properties + app/satsh-release.jks (keep both safe!).
+// Release signing: android/key.properties + app/aigen-release.jks (keep both safe!).
 // Same key every build = updates install over the old app without uninstalling.
 val keyProps = Properties().apply {
     val f = rootProject.file("key.properties")
@@ -14,7 +14,7 @@ val keyProps = Properties().apply {
 }
 
 android {
-    namespace = "id.adam.satsh"
+    namespace = "id.adam.aigen"
     compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "id.adam.satsh"
+        applicationId = "id.adam.aigen"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -38,11 +38,11 @@ android {
         versionName = flutter.versionName
     }
 
-    // satshd (the phone SSH server) ships as lib*.so so Android lets us exec it.
+    // aigend (the phone SSH server) ships as lib*.so so Android lets us exec it.
     packaging {
         jniLibs {
             useLegacyPackaging = true
-            keepDebugSymbols += "**/libsatshd.so"
+            keepDebugSymbols += "**/libaigend.so"
         }
     }
 

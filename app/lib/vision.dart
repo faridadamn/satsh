@@ -9,8 +9,8 @@ import 'package:path_provider/path_provider.dart';
 /// image files it opens. Stored as small JPEGs on disk; messages keep paths.
 class Vision {
   Vision._();
-  static const _ch = MethodChannel('satsh/native');
-  static const _zoneKey = #satshToolImages;
+  static const _ch = MethodChannel('aigen/native');
+  static const _zoneKey = #aigenToolImages;
 
   /// For tests / desktop.
   static String? dirOverride;

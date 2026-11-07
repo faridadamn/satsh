@@ -2,7 +2,7 @@
 
     python tests/test_profiles.py                 # unit checks
     python tests/test_profiles.py export OUT.zip  # write a zip for the Android interop test
-    python tests/test_profiles.py import IN.zip   # check a zip made by satsh Android
+    python tests/test_profiles.py import IN.zip   # check a zip made by aigen Android
 """
 import json
 import os
@@ -10,11 +10,11 @@ import sys
 import tempfile
 import zipfile
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshprof")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenprof")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh import agentzip  # noqa: E402
-from satsh.brain import Brain  # noqa: E402
+from aigen import agentzip  # noqa: E402
+from aigen.brain import Brain  # noqa: E402
 
 
 def fresh():
@@ -56,7 +56,7 @@ def unit():
     ok(b2.create_profile("Payu Ops")["id"] == "payu-ops-2", "unique ids")
 
     # prompt + tools follow the profile
-    from satsh.agent import Agent
+    from aigen.agent import Agent
     a = Agent(brain=b2)
     b2.update_profile("payu-ops", desc="ngurus payu", toolsOff=["ssh"])
     pb = b2.view("payu-ops")
@@ -75,9 +75,9 @@ def unit():
 
     # old jobs/sessions have no profile → must fall back to default (v2.0.0 crashed here)
     ok(b2.view(None).id == "default" and b2.view("ga-ada").id == "default", "missing profile falls back to default")
-    from satsh.agent import CronRunner
-    from satsh import agent as agent_mod, errlog
-    from satsh.brain import CronJob, now_ms
+    from aigen.agent import CronRunner
+    from aigen import agent as agent_mod, errlog
+    from aigen.brain import CronJob, now_ms
 
     class FakeLlm:
         name = "fake"
@@ -107,7 +107,7 @@ def unit():
     src, sess = seeded()
     data = agentzip.export(src, sessions=True, jobs=True)
     names = set(zipfile.ZipFile(__import__("io").BytesIO(data)).namelist())
-    ok({"satsh-agent.json", "USER.md", "profiles/default/SOUL.md", "profiles/payu/skills/deploy-payu/SKILL.md", "sessions/%s.json" % sess["id"]} <= names, "zip layout")
+    ok({"aigen-agent.json", "USER.md", "profiles/default/SOUL.md", "profiles/payu/skills/deploy-payu/SKILL.md", "sessions/%s.json" % sess["id"]} <= names, "zip layout")
     dst = fresh()
     dst.memory_op("add", "user", "suka kopi")
     summary = agentzip.import_zip(dst, data)
@@ -126,8 +126,8 @@ def unit():
 
 
 def presets_test():
-    from satsh import presets
-    from satsh.agent import Agent, RunCtx
+    from aigen import presets
+    from aigen.agent import Agent, RunCtx
     ok("web-designer" in presets.ids(), "web-designer preset ships with desktop")
     f = presets.load("web-designer")
     for sk in ("antislop", "antislop-ui", "design-md", "agents-md", "web-build", "web-resources"):
@@ -166,7 +166,7 @@ def check_android_zip(path):
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "export":
         b, _ = seeded()
-        from satsh.brain import CronJob, now_ms
+        from aigen.brain import CronJob, now_ms
         b.jobs.append(CronJob(id="jobwin1", name="cek", prompt="cek server", everyMinutes=60, dailyAt=None, enabled=True,
                               allowRisky=False, lastRun=None, lastResult="", sessionId=None, created=now_ms(), profile="payu"))
         b.save_jobs()

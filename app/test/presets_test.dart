@@ -3,13 +3,13 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/presets.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/browser.dart';
-import 'package:satsh/preview_server.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/presets.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/browser.dart';
+import 'package:aigen/preview_server.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'browser_test.dart' show FakeBackend;
@@ -94,12 +94,12 @@ void main() {
   test('web_preview serves the project folder and opens it in the agent browser', () async {
     final root = Directory.systemTemp.createTempSync('phone');
     phoneBase = root.path;
-    final proj = Directory('${root.path}/Download/satsh-web/kopi')..createSync(recursive: true);
+    final proj = Directory('${root.path}/Download/aigen-web/kopi')..createSync(recursive: true);
     File('${proj.path}/index.html').writeAsStringSync('<h1>Kopi</h1><link rel=stylesheet href=s.css>');
     File('${proj.path}/s.css').writeAsStringSync('h1{color:red}');
     final fake = FakeBackend();
     ResearchBrowser.i.backendFactory = () => fake;
-    final out = await toolByName('web_preview')!.run({'path': 'Download/satsh-web/kopi'});
+    final out = await toolByName('web_preview')!.run({'path': 'Download/aigen-web/kopi'});
     expect(out, contains('Judul:'));
     final url = fake.loaded.last;
     expect(url, startsWith('http://127.0.0.1:'));

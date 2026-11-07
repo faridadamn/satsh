@@ -1,8 +1,8 @@
 // Agent loop limits: step cap, "no limit", and the going-in-circles detector.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/agent/tools.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/agent/tools.dart';
 
 class Fake implements LlmProvider {
   Fake(this.script);

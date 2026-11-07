@@ -4,12 +4,12 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/browser.dart';
-import 'package:satsh/error_log.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/browser.dart';
+import 'package:aigen/error_log.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FakeBrowser implements BrowserBackend {

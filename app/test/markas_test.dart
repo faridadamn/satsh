@@ -4,12 +4,12 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/error_log.dart';
-import 'package:satsh/markas.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/error_log.dart';
+import 'package:aigen/markas.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -57,7 +57,7 @@ void main() {
     expect(t['progress'], 40);
     expect(jsonEncode(s), contains('deploy staging'));
     final chat = await Markas.i.run(['read']);
-    expect(chat, contains('satsh'));
+    expect(chat, contains('aigen'));
     expect(chat, contains('rapat beres'));
     expect(await Markas.i.run(['inbox', '--for', 'adam']), contains('rapat beres'));
     await expectLater(m.run({'action': 'target_update'}), throwsA('id wajib'));

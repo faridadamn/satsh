@@ -293,8 +293,8 @@ class OpenAiCompat implements LlmProvider {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $apiKey',
-              'HTTP-Referer': 'https://satsh.app',
-              'X-Title': 'satsh',
+              'HTTP-Referer': 'https://aigen.app',
+              'X-Title': 'aigen',
             },
             body: jsonEncode({
               'model': model,

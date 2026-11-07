@@ -55,17 +55,17 @@ Future<void> main() async {
     Native.notifyIfAway(title, body, id: id);
   };
   PhoneServer.i.init().ignore();
-  runApp(const SatshApp());
+  runApp(const AigenApp());
 }
 
-class SatshApp extends StatefulWidget {
-  const SatshApp({super.key});
+class AigenApp extends StatefulWidget {
+  const AigenApp({super.key});
 
   @override
-  State<SatshApp> createState() => _SatshAppState();
+  State<AigenApp> createState() => _AigenAppState();
 }
 
-class _SatshAppState extends State<SatshApp> {
+class _AigenAppState extends State<AigenApp> {
   @override
   void initState() {
     super.initState();
@@ -95,7 +95,7 @@ class _SatshAppState extends State<SatshApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'satsh',
+        title: 'aigen',
         debugShowCheckedModeBanner: false,
         navigatorKey: navKey,
         theme: buildTheme(),

@@ -263,7 +263,7 @@ class CodexAuth {
       req.response.headers.contentType = ContentType.html;
       req.response.write('<html><body style="font-family:sans-serif;background:#0c0d12;color:#edeef3;display:grid;place-items:center;height:100vh;margin:0">'
           '<div style="text-align:center"><h1 style="color:${ok ? '#34d399' : '#ff5d5d'}">${ok ? 'Login berhasil ✓' : 'Login gagal'}</h1>'
-          '<p>${ok ? 'Balik ke satsh ya bre.' : (q['error_description'] ?? q['error'] ?? 'Coba lagi dari satsh.')}</p></div></body></html>');
+          '<p>${ok ? 'Balik ke aigen ya bre.' : (q['error_description'] ?? q['error'] ?? 'Coba lagi dari aigen.')}</p></div></body></html>');
       await req.response.close();
       if (ok && !codeC.isCompleted) codeC.complete(q['code']!);
       if (!ok && q['error'] != null && !codeC.isCompleted) codeC.completeError(LlmError('Login ditolak: ${q['error_description'] ?? q['error']}'));

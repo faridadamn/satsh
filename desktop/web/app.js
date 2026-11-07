@@ -1,4 +1,4 @@
-/* satsh desktop — vanilla JS UI */
+/* aigen desktop — vanilla JS UI */
 "use strict";
 
 // ------------------------------------------------------------------ helpers
@@ -99,7 +99,7 @@ const NAV = [["agent", "Agent", "agent"], ["markas", "Markas", "users"], ["host"
 function renderNav() {
   const unread = S.st ? S.st.sessions.filter((m) => m.unread).length : 0;
   const btn = ([v, l, ic]) => h("button", { class: "navbtn" + (S.view === v ? " on" : ""), onclick: () => setView(v) }, icon(ic), h("span", { class: "lbl" }, l), v === "agent" && unread ? h("span", { class: "badge" }, unread) : null);
-  $("#side").replaceChildren(h("div", { class: "logo grad-text" }, "satsh", h("small", {}, "desktop " + ((S.st && S.st.version) || ""))), ...NAV.map(btn),
+  $("#side").replaceChildren(h("div", { class: "logo grad-text" }, "aigen", h("small", {}, "desktop " + ((S.st && S.st.version) || ""))), ...NAV.map(btn),
     h("div", { class: "spacer" }), S.st && S.st.tunnel.url ? h("div", { class: "chip", style: { margin: "0 8px" } }, h("span", { class: "dot on" }), "remote on") : null);
   $("#bottomnav").replaceChildren(...NAV.map(btn));
 }
@@ -672,7 +672,7 @@ async function pushSkills(only) {
     };
     pick.onchange = () => { chosen.clear(); load(); };
     load();
-    return [h("h2", {}, "Push skill ke Hermes"), h("div", { class: "muted small" }, "Skill profil aktif dikirim lewat SSH ke ~/.hermes/skills/satsh/<nama>/. Hermes pakai mulai sesi berikutnya. Tool khusus satsh ga ada di Hermes — skill berisi prosedur shell/CLI paling cocok."),
+    return [h("h2", {}, "Push skill ke Hermes"), h("div", { class: "muted small" }, "Skill profil aktif dikirim lewat SSH ke ~/.hermes/skills/aigen/<nama>/. Hermes pakai mulai sesi berikutnya. Tool khusus aigen ga ada di Hermes — skill berisi prosedur shell/CLI paling cocok."),
       pick, body, h("div", { class: "row", style: { marginTop: "12px" } }, h("div", { class: "spacer" }), h("button", { class: "btn ghost", onclick: () => close(null) }, "Tutup"))];
   });
   await refresh(); render();
@@ -693,7 +693,7 @@ async function editSkill(s) {
   await refresh(); render();
 }
 function brainJobs(el) {
-  el.append(h("div", { class: "row" }, h("div", { class: "muted", style: { flex: 1 } }, "Agent kerja otomatis sesuai jadwal (selama satsh nyala). Hasilnya masuk ke sesi ⏰ dan dikirim ke Telegram kalau diset."),
+  el.append(h("div", { class: "row" }, h("div", { class: "muted", style: { flex: 1 } }, "Agent kerja otomatis sesuai jadwal (selama aigen nyala). Hasilnya masuk ke sesi ⏰ dan dikirim ke Telegram kalau diset."),
     h("button", { class: "btn primary", onclick: () => editJob() }, icon("plus"), "Jadwal baru")));
   if (!S.st.jobs.length) el.append(h("div", { class: "empty" }, h("div", {}, h("div", { class: "ico" }, icon("clock")), h("h3", {}, "Belum ada jadwal"), "Bisa juga minta langsung di chat: \"tiap jam 7 cek disk VPS\".")));
   S.st.jobs.forEach((j) => el.append(h("div", { class: "card col" },
@@ -786,10 +786,10 @@ function setRemote(el) {
     h("button", { class: "btn", disabled: !!dlBusy, onclick: () => tryDo(() => api("/api/tunnel/download", {})) }, icon("download"), tn.exe ? "Download ulang" : "Download cloudflared"));
   const tok = h("input", { class: "field", type: "password", placeholder: st.secrets.telegramToken ? "Token bot tersimpan" : "Token bot Telegram (dari @BotFather)" });
   const chat = h("input", { class: "field mono", placeholder: "Chat ID Telegram lu" }); chat.value = st.settings.telegramChat || "";
-  el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Buka satsh dari HP"),
+  el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Buka aigen dari HP"),
     h("div", { class: "muted small" }, "Pakai Cloudflare quick tunnel: dapet link https://….trycloudflare.com yang bisa dibuka dari HP mana aja. Link-nya dikirim ke Telegram tiap kali nyala. Akses dari luar wajib login password."),
     h("label", { class: "lbl" }, "Password web"), pw, h("label", { class: "lbl" }, "Lokasi cloudflared.exe"), cf, cfRow,
-    h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Nyalain otomatis pas satsh start"), sw(st.settings.remoteEnabled, (v) => saveSettings({ remoteEnabled: v }))),
+    h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Nyalain otomatis pas aigen start"), sw(st.settings.remoteEnabled, (v) => saveSettings({ remoteEnabled: v }))),
     h("button", { class: "btn", onclick: async () => { if (pw.value) { await api("/api/secret", { key: "webPassword", value: pw.value }); } await saveSettings({ cloudflared: cf.value.trim() }); toast("Kesimpen"); render(); } }, icon("save"), "Simpan"),
     h("div", { class: "row" }, h("span", { class: "dot " + (tn.url && tn.ready ? "on" : tn.running ? "busy" : "") }), h("div", { style: { flex: 1, minWidth: 0 } },
       tn.url ? h("div", {}, h("a", { href: tn.url, target: "_blank", class: "mono" }, tn.url), !tn.ready ? h("div", { class: "muted small" }, "⏳ " + (tn.note || "Nyiapin link…") + " — jangan dibuka dulu") : null, tn.error ? h("div", { class: "small", style: { color: "var(--amber)" } }, tn.error) : null)
@@ -804,9 +804,9 @@ function setApp(el) {
   const st = S.st.settings;
   el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Tema"), seg([["dark", "Gelap"], ["light", "Terang"]], st.theme, (v) => saveSettings({ theme: v }).then(render))),
     h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Font terminal"), seg([["12", "12"], ["13", "13"], ["14", "14"], ["16", "16"], ["18", "18"]], localStorage.getItem("fontSize") || "14", (v) => { localStorage.setItem("fontSize", v); Object.values(TERMS).forEach((t) => { t.x.options.fontSize = +v; try { t.fit.fit(); } catch (e) { } }); render(); })),
-    h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Matiin satsh"), h("div", { class: "muted small" }, "satsh jalan di background (tanpa jendela). Tutup tab browser ga bikin dia mati — pakai tombol ini kalau mau beneran berhenti."),
-      h("button", { class: "btn danger", onclick: async () => { if (await confirmBox("Matiin satsh?", "Jadwal & tunnel ikut berhenti. Buka lagi lewat shortcut satsh.", "Matiin")) { await api("/api/shutdown", {}); document.body.replaceChildren(h("div", { class: "empty", style: { height: "100%" } }, h("div", {}, h("div", { class: "ico" }, icon("power")), h("h3", {}, "satsh udah dimatiin"), "Buka lagi lewat shortcut satsh di Desktop."))); } } }, icon("power"), "Matiin")),
-    h("div", { class: "card col" }, h("b", {}, "Data"), h("div", { class: "muted small mono" }, "Semua data (host, sesi, memori, skill) ada di folder .satsh di folder user lu. Password & API key dienkripsi pakai akun Windows (DPAPI).")));
+    h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Matiin aigen"), h("div", { class: "muted small" }, "aigen jalan di background (tanpa jendela). Tutup tab browser ga bikin dia mati — pakai tombol ini kalau mau beneran berhenti."),
+      h("button", { class: "btn danger", onclick: async () => { if (await confirmBox("Matiin aigen?", "Jadwal & tunnel ikut berhenti. Buka lagi lewat shortcut aigen.", "Matiin")) { await api("/api/shutdown", {}); document.body.replaceChildren(h("div", { class: "empty", style: { height: "100%" } }, h("div", {}, h("div", { class: "ico" }, icon("power")), h("h3", {}, "aigen udah dimatiin"), "Buka lagi lewat shortcut aigen di Desktop."))); } } }, icon("power"), "Matiin")),
+    h("div", { class: "card col" }, h("b", {}, "Data"), h("div", { class: "muted small mono" }, "Semua data (host, sesi, memori, skill) ada di folder .aigen di folder user lu. Password & API key dienkripsi pakai akun Windows (DPAPI).")));
 }
 
 // ===================================================================== LOGIN
@@ -816,7 +816,7 @@ function showLogin() {
   const go = async () => { const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: f.value }), credentials: "same-origin" }); if (r.ok) location.reload(); else { toast("Password salah", true); f.value = ""; } };
   f.onkeydown = (e) => e.key === "Enter" && go();
   document.body.append(h("div", { class: "modal-bg", id: "login", style: { background: "var(--bg)" } }, h("div", { class: "modal col", style: { width: "min(380px,100%)", textAlign: "center" } },
-    h("div", { class: "logo grad-text", style: { fontSize: "40px", fontWeight: 700 } }, "satsh"), h("div", { class: "muted" }, "Masukin password buat buka satsh desktop"), f, h("button", { class: "btn primary", onclick: go }, "Masuk"))));
+    h("div", { class: "logo grad-text", style: { fontSize: "40px", fontWeight: 700 } }, "aigen"), h("div", { class: "muted" }, "Masukin password buat buka aigen desktop"), f, h("button", { class: "btn primary", onclick: go }, "Masuk"))));
   setTimeout(() => f.focus(), 50);
 }
 
@@ -831,7 +831,7 @@ function showLogin() {
 // ================================================================ PROFILES
 const PROF_EMOJIS = ["⚡", "🤖", "🧠", "🛠️", "🛵", "💼", "🎬", "🎨", "📈", "🧾", "🌙", "🦊", "🚀", "📚"];
 const profById = (id) => S.st.profiles.find((p) => p.id === (id || "default"));
-const activeProf = () => profById(S.st.activeProfile) || S.st.profiles[0] || { id: "default", name: "satsh", emoji: "⚡" };
+const activeProf = () => profById(S.st.activeProfile) || S.st.profiles[0] || { id: "default", name: "aigen", emoji: "⚡" };
 function profModel(p) {
   const all = S.st.providers.filter((x) => !x.disabled);
   const pr = all.find((x) => x.id === (p && p.provider)) || all[0];
@@ -853,7 +853,7 @@ async function profileMenu() {
     h("button", { class: "btn", onclick: () => close({ add: true }) }, icon("plus"), "Profil baru"),
     (S.st.presets || []).map((pr) => h("button", { class: "btn", onclick: () => close({ preset: pr.id }) }, icon("plus"), "Pasang preset: " + pr.name)),
     h("div", { class: "row" }, h("button", { class: "btn", style: { flex: 1 }, onclick: () => close({ exp: true }) }, "Ekspor zip"), h("button", { class: "btn", style: { flex: 1 }, onclick: () => close({ imp: true }) }, "Impor zip")),
-    h("div", { class: "muted small" }, "Zip-nya sama formatnya sama satsh di HP — bisa bolak-balik HP ⇄ laptop.")]);
+    h("div", { class: "muted small" }, "Zip-nya sama formatnya sama aigen di HP — bisa bolak-balik HP ⇄ laptop.")]);
   if (!act) return;
   if (act.use) return activateProfile(act.use);
   if (act.edit) return editProfile(profById(act.edit));
@@ -903,7 +903,7 @@ async function editProfile(p) {
 async function exportZip() {
   const opt = await modal((close) => {
     let ses = false, job = false;
-    return [h("h2", {}, "Ekspor otak agent (.zip)"), h("div", { class: "muted" }, "Semua profil: soul, memori, skill, plus profil user. Bisa diimpor di satsh HP atau laptop lain."),
+    return [h("h2", {}, "Ekspor otak agent (.zip)"), h("div", { class: "muted" }, "Semua profil: soul, memori, skill, plus profil user. Bisa diimpor di aigen HP atau laptop lain."),
       h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Ikutin riwayat chat"), sw(false, (x) => (ses = x))),
       h("div", { class: "row" }, h("div", { style: { flex: 1 } }, "Ikutin jadwal"), sw(false, (x) => (job = x))),
       h("button", { class: "btn primary", onclick: () => close({ ses, job }) }, "Download zip")];
@@ -973,7 +973,7 @@ async function setErrors(el) {
     : [h("div", { class: "card muted" }, "Belum ada error. Kalau ada yang crash atau gagal aneh, detail + traceback-nya muncul di sini.")]));
   draw();
   el.append(h("div", { class: "card col" }, h("b", { style: { fontSize: "16px" } }, "Log error"),
-    h("div", { class: "muted small" }, list.length + " error · satsh desktop " + r.version + ". Kirim log ke yang benerin app biar ketahuan baris kodenya."),
+    h("div", { class: "muted small" }, list.length + " error · aigen desktop " + r.version + ". Kirim log ke yang benerin app biar ketahuan baris kodenya."),
     h("div", { class: "row" },
       h("button", { class: "btn", onclick: async () => { const t = await (await fetch("/api/errors/report", { credentials: "same-origin" })).text(); copyText(t, "Log"); } }, "Salin semua"),
       h("a", { class: "btn primary", href: "/api/errors/report", download: "" }, "Download .txt"),
@@ -982,7 +982,7 @@ async function setErrors(el) {
 }
 
 // ------------------------------------------------------------------- markas
-const WHO = { adam: "var(--pink)", satsh: "var(--cyan)", hermes: "var(--amber)", muse: "var(--violet)", agy: "var(--green)" };
+const WHO = { adam: "var(--pink)", aigen: "var(--cyan)", hermes: "var(--amber)", muse: "var(--violet)", agy: "var(--green)" };
 const whoC = (w) => WHO[w] || "var(--muted)";
 function viewMarkas() {
   const body = h("div", { class: "pane-inner stagger" }, h("div", { class: "muted" }, "Ngambil data Markas…"));
@@ -997,7 +997,7 @@ function drawMarkas(el, r) {
     const pick = h("select", { class: "field" }, hosts.map((x) => h("option", { value: x.id }, x.label + " (" + x.username + "@" + x.host + ")")));
     const pref = hosts.find((x) => /adamn/i.test(x.label + x.host)); if (pref) pick.value = pref.id;
     el.replaceChildren(h("h1", { class: "grad-text" }, "Markas"),
-      h("p", { class: "muted" }, "Workspace bareng lu & semua agent: target, pencapaian, obrolan. Datanya di server lu sendiri (program kecil `markas`, diakses lewat SSH — ga buka port apa-apa). Kalau Hermes ada di server itu, skill-nya ikut dipasang. satsh HP & laptop bisa pakai server yang sama."),
+      h("p", { class: "muted" }, "Workspace bareng lu & semua agent: target, pencapaian, obrolan. Datanya di server lu sendiri (program kecil `markas`, diakses lewat SSH — ga buka port apa-apa). Kalau Hermes ada di server itu, skill-nya ikut dipasang. aigen HP & laptop bisa pakai server yang sama."),
       hosts.length ? h("div", { class: "col", style: { gap: "12px" } }, pick,
         h("button", { class: "btn primary", onclick: async () => { const x = await tryDo(() => api("/api/markas/install", { hostId: pick.value })); toast(x.hermes ? "Markas kepasang + skill Hermes" : "Markas kepasang" + (x.hermesCli ? "" : " (Hermes ga ketemu di server ini)")); render(); } }, icon("power"), "Pasang Markas"),
         h("button", { class: "btn ghost", onclick: async () => { await api("/api/markas/host", { hostId: pick.value }); render(); } }, "Udah kepasang (dari HP) — sambungin aja"))
@@ -1011,7 +1011,7 @@ function drawMarkas(el, r) {
   const top = h("div", { class: "row", style: { flexWrap: "wrap", gap: "8px" } }, h("h1", { class: "grad-text", style: { margin: 0, fontSize: "28px" } }, "Markas"), h("span", { class: "chip" }, r.host || "server"), h("div", { class: "spacer" }),
     h("button", { class: "icon-btn", title: "Refresh", onclick: () => render() }, icon("refresh")),
     h("button", { class: "btn", onclick: async () => {
-      if (await confirmBox(job ? "Matikan rapat harian?" : "Rapat tiap hari jam 08:00?", job ? "" : "satsh bakal nanya PIC tiap target & ngirim rangkuman ke lu.", job ? "Matikan" : "Jadwalkan", !!job)) {
+      if (await confirmBox(job ? "Matikan rapat harian?" : "Rapat tiap hari jam 08:00?", job ? "" : "aigen bakal nanya PIC tiap target & ngirim rangkuman ke lu.", job ? "Matikan" : "Jadwalkan", !!job)) {
         if (job) await api("/api/job/delete", { id: job.id }); else await api("/api/job", { name: "Rapat Markas", prompt: S.mkPrompt || "[Rapat Markas] jalankan rapat Markas: markas brief, tanya PIC tiap target aktif (tanya_agent), catat (log/target_update), markas say rangkuman ke adam.", dailyAt: "08:00", enabled: true });
         await refresh(); render();
       } } }, icon("history"), job ? "Rapat harian ✓" : "Jadwalkan"),

@@ -137,7 +137,7 @@ class _CekHpPageState extends State<CekHpPage> {
       body: SafeArea(
         top: false,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-          Text('Buat cek HP bekas sebelum beli (pasang satsh di HP itu), atau kesehatan HP sendiri. Hasilnya bisa dianalisa agent.',
+          Text('Buat cek HP bekas sebelum beli (pasang aigen di HP itu), atau kesehatan HP sendiri. Hasilnya bisa dianalisa agent.',
               style: TextStyle(color: C.muted, fontSize: 13)),
           const SizedBox(height: 12),
           FilledButton.icon(

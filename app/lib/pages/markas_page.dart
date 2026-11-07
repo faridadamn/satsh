@@ -193,7 +193,7 @@ class _MarkasPageState extends State<MarkasPage> {
 
   static Color _who(String n) => switch (n) {
         'adam' => C.pink,
-        'satsh' => C.cyan,
+        'aigen' => C.cyan,
         'hermes' => C.amber,
         'muse' => C.violet,
         'agy' => C.green,
@@ -315,7 +315,7 @@ class _MarkasPageState extends State<MarkasPage> {
                       controller: _say,
                       minLines: 1,
                       maxLines: 4,
-                      decoration: const InputDecoration(hintText: 'Tulis ke markas… (@hermes, @satsh)'),
+                      decoration: const InputDecoration(hintText: 'Tulis ke markas… (@hermes, @aigen)'),
                       onSubmitted: (_) => _send(),
                     ),
                   ),

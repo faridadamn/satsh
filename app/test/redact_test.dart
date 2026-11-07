@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/redact.dart';
+import 'package:aigen/redact.dart';
 
 void main() {
   tearDown(() {

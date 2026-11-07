@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:satsh/agent/llm.dart';
+import 'package:aigen/agent/llm.dart';
 
 String sse(List<Map<String, dynamic>> chunks) => '${chunks.map((c) => 'data: ${jsonEncode(c)}\n\n').join()}data: [DONE]\n\n';
 
@@ -95,7 +95,7 @@ void main() {
 
     late String img;
     setUpAll(() {
-      img = '${Directory.systemTemp.createTempSync('satshimg').path}/a.jpg';
+      img = '${Directory.systemTemp.createTempSync('aigenimg').path}/a.jpg';
       File(img).writeAsBytesSync([0xff, 0xd8, 0xff, 0xd9]);
     });
     List<Msg> withPic() => [Msg(role: 'user', text: 'ini error apa?', images: [img])];

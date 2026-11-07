@@ -64,7 +64,7 @@ class Store extends ChangeNotifier {
       secrets.addAll(all);
     }
     return const JsonEncoder.withIndent('  ').convert({
-      'app': 'satsh',
+      'app': 'aigen',
       'version': 1,
       'hosts': hosts.map((e) => e.toJson()).toList(),
       'snippets': snippets.map((e) => e.toJson()).toList(),
@@ -78,7 +78,7 @@ class Store extends ChangeNotifier {
   /// Merges a backup in (same ids get replaced). Returns count of hosts.
   Future<int> importJson(String text) async {
     final j = jsonDecode(text) as Map<String, dynamic>;
-    if (j['app'] != 'satsh') throw 'Bukan file backup satsh';
+    if (j['app'] != 'aigen' && j['app'] != 'satsh') throw 'Bukan file backup aigen';
     void merge<T>(List<T> into, List src, T Function(Map<String, dynamic>) f, String Function(T) id) {
       for (final raw in src.cast<Map<String, dynamic>>()) {
         final item = f(raw);

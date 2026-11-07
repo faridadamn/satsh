@@ -7,12 +7,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/agent/model_tools.dart';
-import 'package:satsh/agent/providers.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/agent/model_tools.dart';
+import 'package:aigen/agent/providers.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final png = Uint8List.fromList([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);

@@ -1,4 +1,4 @@
-satsh desktop v2.4.6 - agent + SSH buat Windows 7 / 10 / 11
+aigen desktop v2.4.6 - agent + SSH buat Windows 7 / 10 / 11
 ==========================================
 
 PASANG (sekali aja)
@@ -7,22 +7,22 @@ PASANG (sekali aja)
                       Win7 butuh update KB2533623 (biasanya udah ada kalau Windows-nya update).
    - Windows 10/11  : Python 3.12 dari python.org (3.8 s/d 3.14 juga bisa).
    32-bit atau 64-bit dua-duanya didukung.
-2. Extract zip ini ke folder tetap, mis. D:\satsh  (jangan dijalanin dari dalam zip).
+2. Extract zip ini ke folder tetap, mis. D:\aigen  (jangan dijalanin dari dalam zip).
 3. Klik 2x install.bat. Dia bakal:
    - nyari Python yang cocok, bikin .venv, install library dari folder wheels
      (offline, ga perlu internet - wheel buat Python 3.8 s/d 3.14 udah ada)
-   - bikin shortcut "satsh" di Desktop
+   - bikin shortcut "aigen" di Desktop
    - nanya mau autostart pas Windows nyala atau ga
 4. UI kebuka di browser: http://127.0.0.1:8771
    Win7: pakai Chrome 109 / Firefox ESR 115 (IE ga bisa). Win10/11: Chrome / Edge biasa.
 
 UPDATE DARI VERSI LAMA
-1. Cari folder satsh lu: klik kanan shortcut "satsh" di Desktop > Properties > "Start in".
-2. Buka zip, masuk ke folder satsh-desktop di dalamnya, copy ISINYA ke folder itu (timpa semua).
-   Jangan sampai jadi folder dobel (satsh-desktop\satsh-desktop\...).
-3. Klik 2x install.bat di folder itu. Satsh versi lama yang masih nyala otomatis dimatiin & diganti.
+1. Cari folder aigen lu: klik kanan shortcut "aigen" di Desktop > Properties > "Start in".
+2. Buka zip, masuk ke folder aigen-desktop di dalamnya, copy ISINYA ke folder itu (timpa semua).
+   Jangan sampai jadi folder dobel (aigen-desktop\aigen-desktop\...).
+3. Klik 2x install.bat di folder itu. Aigen versi lama yang masih nyala otomatis dimatiin & diganti.
 4. Cek nomor versi di pojok kiri atas (tulisan "desktop 2.4.6").
-Data lu aman: semuanya ada di %USERPROFILE%\.satsh, bukan di folder aplikasi.
+Data lu aman: semuanya ada di %USERPROFILE%\.aigen, bukan di folder aplikasi.
 
 PERTAMA KALI
 - Pengaturan > Agent: isi provider (OpenAI / DeepSeek / OpenRouter / Groq / Gemini / custom),
@@ -34,7 +34,7 @@ BARU DI 2.4.6
 - Kirim gambar ke 9router/Gemini ga "Respon kosong" lagi: kalau provider nolak gambarnya,
   alasannya ditampilin dan agent tetep jawab tanpa gambar itu.
 - Agent bisa ganti model sendiri buat chat itu (model_list / model_switch) dan bikin gambar
-  pakai model khusus gambar (image_generate) - hasilnya di folder Pictures\satsh.
+  pakai model khusus gambar (image_generate) - hasilnya di folder Pictures\aigen.
 - Sensor data sensitif sekarang juga nutup jawaban akhir agent, notifikasi, dan daftar rencana.
 
 BARU DI 2.4.5
@@ -45,7 +45,7 @@ BARU DI 2.4.4
   checklist fisik & harga wajar). Bilang aja ke agent: "cek laptop ini, mau gw beli".
 
 BARU DI 2.4.3
-- Update ga ketuker lagi: satsh baru otomatis matiin versi lama yang masih nyala.
+- Update ga ketuker lagi: aigen baru otomatis matiin versi lama yang masih nyala.
 - Nomor versi kelihatan di pojok kiri atas.
 - Remote HP: link baru ditandain siap (dan dikirim ke Telegram) setelah beneran bisa dibuka.
   Kalau DNS ISP lu yang telat/blokir, ada keterangannya.
@@ -64,7 +64,7 @@ BARU DI 2.4
 - Push skill ke Hermes: Otak > Skill > "Push ke Hermes" (kirim lewat SSH ke ~/.hermes/skills).
 - Sensor data sensitif: API key/password/token/IP disamarin di proses agent (Pengaturan > Agent).
 - Lebih ringan di laptop lama: chat ga digambar ulang tiap agent ganti status.
-- Keamanan: website lain ga bisa lagi nyuruh-nyuruh satsh lewat browser (CSRF ditutup).
+- Keamanan: website lain ga bisa lagi nyuruh-nyuruh aigen lewat browser (CSRF ditutup).
 
 FITUR
 - Preset Web Designer (baru di 2.2): profil agent kedua buat bikin UI web anti-slop
@@ -77,7 +77,7 @@ FITUR
 - Profil agent: beberapa "kepribadian" agent, masing-masing punya soul, memori, skill,
   model utama & tools sendiri (mis. Payu Ops, Riset, Santai). Ganti lewat chip di sebelah
   tulisan Agent. "Profil user" (tentang lu) dipakai bareng semua profil.
-- Zip otak agent: Ekspor / Impor zip (di menu profil). Formatnya SAMA PERSIS sama satsh di HP,
+- Zip otak agent: Ekspor / Impor zip (di menu profil). Formatnya SAMA PERSIS sama aigen di HP,
   jadi profil, memori, skill, riwayat chat & jadwal bisa dipindah HP <-> laptop bolak-balik.
   Impor itu nambahin (memori digabung, ga ketimpa); jadwal hasil impor di-pause dulu.
 - Salin sebagian: tiap blok kode & kutipan di jawaban agent punya tombol Salin sendiri,
@@ -87,7 +87,7 @@ FITUR
 - Tools agent: file laptop, cmd/PowerShell, proses, info laptop, clipboard, screenshot,
   buka file/URL, SSH exec + SFTP + transfer, Supabase, HTTP GET.
   Aksi berisiko (hapus/timpa/jalanin perintah) selalu minta izin dulu.
-- Markas (menu kiri): workspace bareng lu & semua agent (satsh, web-designer, Hermes, agy, Muse).
+- Markas (menu kiri): workspace bareng lu & semua agent (aigen, web-designer, Hermes, agy, Muse).
   Pilih server (mis. adamn) > Pasang Markas. Kalau udah dipasang dari HP, klik "sambungin aja".
   Isinya target + PIC + progress, pencapaian, obrolan. Data di server itu (~/.markas), lewat SSH.
   "Mulai rapat": agent nanya Hermes (hermes -z di server), nitip pesan buat agy & Muse
@@ -99,18 +99,18 @@ FITUR
   Akses dari luar laptop wajib login password.
 
 DATA
-Semua di %USERPROFILE%\.satsh  (settings, host, sesi, memori, skill, jadwal).
+Semua di %USERPROFILE%\.aigen  (settings, host, sesi, memori, skill, jadwal).
 Password & API key dienkripsi pakai akun Windows (DPAPI).
-Format SOUL.md / MEMORY.md / USER.md / skills/*/SKILL.md sama kayak satsh di HP.
+Format SOUL.md / MEMORY.md / USER.md / skills/*/SKILL.md sama kayak aigen di HP.
 
 MATIIN
-Pengaturan > Tampilan > Matiin satsh. (Nutup tab browser ga bikin satsh mati,
+Pengaturan > Tampilan > Matiin aigen. (Nutup tab browser ga bikin aigen mati,
 karena jadwal & tunnel jalan di background.)
-Mau lihat log/error: jalanin satsh.bat (ada jendela console), atau buka %USERPROFILE%\.satsh\satsh.log
+Mau lihat log/error: jalanin aigen.bat (ada jendela console), atau buka %USERPROFILE%\.aigen\aigen.log
 
 KALAU ERROR
 - Layar ngeglitch / kedip di laptop lama: update ke 2.4 dulu. Kalau masih, di Chrome buka
   Settings > System > matiin "Use hardware acceleration when available", restart Chrome.
 - "Python ga ketemu": install Python (lihat PASANG), centang Add to PATH, buka ulang install.bat.
-- Port 8771 kepake: jalanin  .venv\Scripts\python.exe -m satsh --port 8772
+- Port 8771 kepake: jalanin  .venv\Scripts\python.exe -m aigen --port 8772
 - Library gagal install: pastiin pakai Python 3.8 (bukan 3.9+ unofficial), lalu ulang install.bat.

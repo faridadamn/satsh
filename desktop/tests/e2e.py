@@ -35,7 +35,7 @@ def reply_for(body):
         if last["role"] == "user":
             return {"content": None, "tool_calls": [call("memory", {"action": "add", "target": "user", "content": "Suka laporan singkat pakai tabel"})]}
         return {"content": "beres"}
-    if "sub-agent satsh" in system:
+    if "sub-agent aigen" in system:
         if last["role"] == "user":
             return {"content": None, "tool_calls": [call("shell_run", {"command": "echo sub-%s" % lu.split()[-1]})]}
         return {"content": "laporan " + msgs[-1]["content"].strip().split("\n")[-1]}
@@ -118,13 +118,13 @@ def ok(cond, msg):
 def main(keep=False):
     llm = ThreadingHTTPServer(("127.0.0.1", LLM_PORT), LLM)
     threading.Thread(target=llm.serve_forever, daemon=True).start()
-    home = tempfile.mkdtemp(prefix="satshhome")
-    env = dict(os.environ, SATSH_HOME=home, HOME=home)
+    home = tempfile.mkdtemp(prefix="aigenhome")
+    env = dict(os.environ, AIGEN_HOME=home, HOME=home)
     os.makedirs(os.path.join(home, "Downloads"))
     with open(os.path.join(home, "Downloads", "laporan.md"), "w") as f:
         f.write("# Laporan\n- satu")
     py = sys.executable
-    srv = subprocess.Popen([py, "-m", "satsh", "--port", str(PORT), "--no-browser"], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), env=env)
+    srv = subprocess.Popen([py, "-m", "aigen", "--port", str(PORT), "--no-browser"], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), env=env)
     try:
         wait(lambda: _alive(), 15, "server up")
         print("server up, home", home)
@@ -154,7 +154,7 @@ def main(keep=False):
         ok(True, "terminal round-trip")
         # sftp
         call("/api/sftp/mkdir", {"host": h["id"], "path": "/home/tester/site"})  # may already exist
-        call("/api/sftp/write", {"host": h["id"], "path": "/home/tester/site/index.html", "content": "<h1>Halo satsh</h1><link rel=stylesheet href=s.css>"})
+        call("/api/sftp/write", {"host": h["id"], "path": "/home/tester/site/index.html", "content": "<h1>Halo aigen</h1><link rel=stylesheet href=s.css>"})
         call("/api/sftp/write", {"host": h["id"], "path": "/home/tester/site/s.css", "content": "h1{color:#7c5cff;font-family:sans-serif}"})
         call("/api/sftp/write", {"host": h["id"], "path": "/home/tester/site/README.md", "content": "# Judul\n\n**tebal** dan `kode`\n\n| a | b |\n|---|---|\n| 1 | 2 |"})
         lst = call("/api/sftp/list?host=%s&path=/home/tester/site" % h["id"])

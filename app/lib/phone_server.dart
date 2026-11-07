@@ -27,16 +27,16 @@ class ServerEvent {
   final DateTime at;
 }
 
-/// "Mode Server": runs satshd (bundled SSH server) so other phones can SSH
+/// "Mode Server": runs aigend (bundled SSH server) so other phones can SSH
 /// into this one, plus an optional reverse tunnel through a VPS ("relay")
 /// so it's reachable from anywhere, even behind mobile-carrier NAT.
 class PhoneServer extends ChangeNotifier {
   PhoneServer._();
   static final PhoneServer i = PhoneServer._();
 
-  static const _native = MethodChannel('satsh/native');
+  static const _native = MethodChannel('aigen/native');
 
-  /// For tests: run a host-built satshd instead of the bundled one.
+  /// For tests: run a host-built aigend instead of the bundled one.
   @visibleForTesting
   static String? binaryOverride;
   @visibleForTesting
@@ -71,7 +71,7 @@ class PhoneServer extends ChangeNotifier {
   int get relayConnections => _relayConns;
 
   Future<String> get dir async {
-    final d = dirOverride ?? '${(await getApplicationSupportDirectory()).path}/satshd';
+    final d = dirOverride ?? '${(await getApplicationSupportDirectory()).path}/aigend';
     await Directory(d).create(recursive: true);
     return d;
   }
@@ -96,7 +96,7 @@ class PhoneServer extends ChangeNotifier {
     notifyListeners();
     try {
       final d = await dir;
-      final bin = binaryOverride ?? '${await _native.invokeMethod<String>('nativeLibDir')}/libsatshd.so';
+      final bin = binaryOverride ?? '${await _native.invokeMethod<String>('nativeLibDir')}/libaigend.so';
       if (!await File(bin).exists()) throw 'Server ga ada di APK ini (arsitektur HP ga didukung)';
       final p = await Process.start(bin, [
         '-dir', d,
@@ -219,7 +219,7 @@ class PhoneServer extends ChangeNotifier {
 
   // ----------------------------------------------------------------- pairing
   /// Creates a one-time token (10 min) and returns the pairing code
-  /// (`satsh://pair/<base64>`) for the QR.
+  /// (`aigen://pair/<base64>`) for the QR.
   Future<String> startPairing() async {
     const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
     final r = Random.secure();
@@ -239,7 +239,7 @@ class PhoneServer extends ChangeNotifier {
       if (relay != null && relayPort > 0 && relayStatus == 'on')
         'r': {'h': relay.host, 'P': relay.port, 'u': relay.username, 'p': relayPort},
     };
-    return 'satsh://pair/${base64Url.encode(utf8.encode(jsonEncode(payload))).replaceAll('=', '')}';
+    return 'aigen://pair/${base64Url.encode(utf8.encode(jsonEncode(payload))).replaceAll('=', '')}';
   }
 
   /// Completes with the paired device's name.
@@ -375,7 +375,7 @@ class PairCode {
   Map<String, dynamic>? get relay => (raw['r'] as Map?)?.cast<String, dynamic>();
 
   static PairCode? parse(String text) {
-    final m = RegExp(r'satsh://pair/([A-Za-z0-9_\-]+)').firstMatch(text.trim());
+    final m = RegExp(r'(?:aigen|satsh)://pair/([A-Za-z0-9_\-]+)').firstMatch(text.trim());
     if (m == null) return null;
     try {
       var b = m.group(1)!;
@@ -447,7 +447,7 @@ class PairClient {
     String? hostKeyType;
     final client = SSHClient(
       socket,
-      username: 'satsh',
+      username: 'aigen',
       onVerifyHostKey: (type, fp) {
         hostKeyType = type;
         return code.fingerprint.isEmpty || utf8.decode(fp) == code.fingerprint;
@@ -463,7 +463,7 @@ class PairClient {
       client.close();
       throw 'Kode pairing udah kepake / kadaluarsa. Bikin kode baru di HP itu.';
     }
-    final res = await client.run('satsh-pair ${key.publicLine}', stderr: true);
+    final res = await client.run('aigen-pair ${key.publicLine}', stderr: true);
     client.close();
     final out = utf8.decode(res);
     if (!out.startsWith('ok')) throw 'Pairing ditolak: ${out.trim()}';
@@ -474,7 +474,7 @@ class PairClient {
       label: code.name,
       host: relayHost != null ? '127.0.0.1' : addr!,
       port: relayHost != null ? r!['p'] as int : code.port,
-      username: 'satsh',
+      username: 'aigen',
       auth: 'key',
       color: store.hosts.length,
       via: relayHost?.id ?? '',

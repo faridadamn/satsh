@@ -11,7 +11,7 @@ class GeneratedKey {
 }
 
 /// Fresh ed25519 key pair in OpenSSH format (same as `ssh-keygen -t ed25519`).
-GeneratedKey generateEd25519({String comment = 'satsh@android', String? passphrase}) {
+GeneratedKey generateEd25519({String comment = 'aigen@android', String? passphrase}) {
   final sk = nacl.SigningKey.generate();
   final pub = Uint8List.fromList(sk.verifyKey.asTypedList);
   final priv = Uint8List.fromList(sk.asTypedList); // 64 bytes: seed + public
@@ -25,5 +25,5 @@ String publicLineFromPem(String pem, {String? passphrase}) {
   final k = SSHKeyPair.fromPem(pem, passphrase).first;
   final pub = k.toPublicKey();
   final type = k.type;
-  return '$type ${base64.encode(pub.encode())} satsh@android';
+  return '$type ${base64.encode(pub.encode())} aigen@android';
 }

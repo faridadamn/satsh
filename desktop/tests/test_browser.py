@@ -1,6 +1,6 @@
 """Agent browser (Chrome via DevTools, stdlib only) + images reaching the model.
 
-Needs a Chromium-based browser: SATSH_BROWSER=/path/to/chrome, or one on PATH / /opt/pw-browsers.
+Needs a Chromium-based browser: AIGEN_BROWSER=/path/to/chrome, or one on PATH / /opt/pw-browsers.
     python tests/test_browser.py
 """
 import json
@@ -11,13 +11,13 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshbr")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenbr")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh import browser as brmod  # noqa: E402
-from satsh import llm  # noqa: E402
-from satsh.browser import browser, find_browser, normalize  # noqa: E402
-from satsh.tools import tool  # noqa: E402
+from aigen import browser as brmod  # noqa: E402
+from aigen import llm  # noqa: E402
+from aigen.browser import browser, find_browser, normalize  # noqa: E402
+from aigen.tools import tool  # noqa: E402
 
 PAGES = {
     "/": """<html><head><title>Toko Tes</title></head><body style="margin:0;font:16px sans-serif">

@@ -9,10 +9,10 @@ import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshllm")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenllm")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from satsh import llm  # noqa: E402
+from aigen import llm  # noqa: E402
 
 REPLY = {"body": "", "ctype": "text/event-stream"}
 SENT = {}

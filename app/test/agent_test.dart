@@ -8,15 +8,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/agent/tools.dart';
-import 'package:satsh/keygen.dart';
-import 'package:satsh/media_server.dart';
-import 'package:satsh/models.dart';
-import 'package:satsh/ssh_manager.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/agent/tools.dart';
+import 'package:aigen/keygen.dart';
+import 'package:aigen/media_server.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/ssh_manager.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TrustAll implements Prompts {
@@ -33,7 +33,7 @@ class ScriptedLlm implements LlmProvider {
   int i = 0;
   @override
   Future<LlmReply> chat(String system, List<Msg> history, List<ToolSpec> tools) async {
-    expect(system, contains('satsh agent'));
+    expect(system, contains('aigen agent'));
     expect(tools.map((t) => t.name), contains('ssh_exec'));
     return steps[i++](history);
   }

@@ -1,5 +1,5 @@
 """Security: the local web UI must not be drivable by other websites (CSRF / DNS rebinding),
-and HTML opened from a host must not reach the satsh API."""
+and HTML opened from a host must not reach the aigen API."""
 import http.client
 import json
 import os
@@ -33,10 +33,10 @@ def req(method, path, body=None, headers=None):
 
 
 def main():
-    home = tempfile.mkdtemp(prefix="satsh-sec-")
-    env = dict(os.environ, SATSH_HOME=home, HOME=home)
+    home = tempfile.mkdtemp(prefix="aigen-sec-")
+    env = dict(os.environ, AIGEN_HOME=home, HOME=home)
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    srv = subprocess.Popen([sys.executable, "-m", "satsh", "--port", str(PORT), "--no-browser"], cwd=root, env=env,
+    srv = subprocess.Popen([sys.executable, "-m", "aigen", "--port", str(PORT), "--no-browser"], cwd=root, env=env,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         for _ in range(50):
@@ -70,8 +70,8 @@ def main():
         srv.wait(5)
 
     sys.path.insert(0, root)
-    os.environ["SATSH_HOME"] = home
-    from satsh import server  # noqa
+    os.environ["AIGEN_HOME"] = home
+    from aigen import server  # noqa
 
     class Fake(server.Handler):
         def __init__(self):
@@ -95,7 +95,7 @@ def main():
     check("host HTML served with CSP sandbox (no same-origin)", "sandbox" in csp and "allow-same-origin" not in csp)
     f = Fake()
     f._send_stream(lambda o, n: iter([b"x"]), 1, "text/html")
-    check("satsh's own files have no sandbox", "Content-Security-Policy" not in dict(f.sent))
+    check("aigen's own files have no sandbox", "Content-Security-Policy" not in dict(f.sent))
     print("SECURITY OK (%d)" % len(OK))
 
 

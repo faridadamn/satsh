@@ -4,38 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/providers.dart';
-import 'package:satsh/pages/brain_page.dart';
-import 'package:satsh/agent/mission.dart';
-import 'package:satsh/pages/missions_page.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/main.dart';
-import 'package:satsh/pages/agent_page.dart';
-import 'package:satsh/pages/file_viewer_page.dart';
-import 'package:satsh/pages/settings_page.dart';
-import 'package:satsh/pages/server_page.dart';
-import 'package:satsh/pages/error_log_page.dart';
-import 'package:satsh/pages/profiles_sheet.dart';
-import 'package:satsh/pages/markas_page.dart';
-import 'package:satsh/markas.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/providers.dart';
+import 'package:aigen/pages/brain_page.dart';
+import 'package:aigen/agent/mission.dart';
+import 'package:aigen/pages/missions_page.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/main.dart';
+import 'package:aigen/pages/agent_page.dart';
+import 'package:aigen/pages/file_viewer_page.dart';
+import 'package:aigen/pages/settings_page.dart';
+import 'package:aigen/pages/server_page.dart';
+import 'package:aigen/pages/error_log_page.dart';
+import 'package:aigen/pages/profiles_sheet.dart';
+import 'package:aigen/pages/markas_page.dart';
+import 'package:aigen/markas.dart';
 import 'dart:convert';
-import 'package:satsh/error_log.dart';
-import 'package:satsh/browser.dart';
+import 'package:aigen/error_log.dart';
+import 'package:aigen/browser.dart';
 import 'browser_test.dart' show FakeBackend;
-import 'package:satsh/models.dart';
-import 'package:satsh/pages/forwards_page.dart';
-import 'package:satsh/diag.dart';
-import 'package:satsh/pages/cek_hp_page.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/pages/forwards_page.dart';
+import 'package:aigen/diag.dart';
+import 'package:aigen/pages/cek_hp_page.dart';
 import 'diag_test.dart' show phone;
-import 'package:satsh/pages/host_edit_page.dart';
-import 'package:satsh/pages/snippets_page.dart';
-import 'package:satsh/pages/terminal_page.dart';
-import 'package:satsh/ssh_manager.dart';
-import 'package:satsh/store.dart';
-import 'package:satsh/theme.dart';
-import 'package:satsh/widgets.dart';
+import 'package:aigen/pages/host_edit_page.dart';
+import 'package:aigen/pages/snippets_page.dart';
+import 'package:aigen/pages/terminal_page.dart';
+import 'package:aigen/ssh_manager.dart';
+import 'package:aigen/store.dart';
+import 'package:aigen/theme.dart';
+import 'package:aigen/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> loadFont(String family, List<String> files) async {
@@ -137,7 +137,7 @@ void main() {
     ErrorLog.dirOverride = Directory.systemTemp.createTempSync('el').path;
     await t.runAsync(() => ErrorLog.i.clear());
     ErrorLog.i.add('cron', 'Null check operator used on a null value',
-        StackTrace.fromString('#0      Brain.view (package:satsh/agent/brain.dart:495:53)\n#1      CronRunner.run (package:satsh/agent/agent.dart:912:30)'),
+        StackTrace.fromString('#0      Brain.view (package:aigen/agent/brain.dart:495:53)\n#1      CronRunner.run (package:aigen/agent/agent.dart:912:30)'),
         context: {'jadwal': 'like-feed-hourly', 'id': '72a1edf4', 'profil': 'default'});
     ErrorLog.i.add('tool', 'RangeError (index): Invalid value', null, context: {'tool': 'browser_read', 'argumen': 'part'});
     await shot(t, const ErrorLogPage(), 'error_log', after: () async {
@@ -148,7 +148,7 @@ void main() {
 
   testWidgets('terminal', (t) async {
     final s = TermSession(Store.i.host('a')!)..state = ConnState.ready;
-    s.terminal.write('\x1b[38;5;99m⚡ satsh\x1b[0m → \x1b[1mroot@103.152.10.7\x1b[0m\r\n'
+    s.terminal.write('\x1b[38;5;99m⚡ aigen\x1b[0m → \x1b[1mroot@103.152.10.7\x1b[0m\r\n'
         'Welcome to Ubuntu 24.04 LTS\r\n\r\n'
         '\x1b[32mroot@vps\x1b[0m:\x1b[34m~\x1b[0m# df -h\r\n'
         'Filesystem      Size  Used Avail Use% Mounted on\r\n'
@@ -314,7 +314,7 @@ Future<Map<String, dynamic>> _markasSample() async {
   await r(['target', 'update', '3', '--progress', '100']);
   await r(['log', 'Hero + pricing section jadi, skor anti-slop 9/10', '--target', '2'], 'web-designer');
   await r(['log', '4 UMKM udah trial, 2 minta demo', '--target', '1'], 'hermes');
-  await r(['say', 'Rapat pagi: 2 target jalan, Payu butuh keputusan harga paket.', '--to', 'adam'], 'satsh');
+  await r(['say', 'Rapat pagi: 2 target jalan, Payu butuh keputusan harga paket.', '--to', 'adam'], 'aigen');
   await r(['say', 'oke, harga 49rb dulu']);
   final snap = jsonDecode(await r(['status', '--json'])) as Map<String, dynamic>;
   for (final k in ['logs', 'messages', 'targets']) {

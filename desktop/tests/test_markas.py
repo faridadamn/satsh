@@ -5,15 +5,15 @@ import subprocess
 import sys
 import tempfile
 
-os.environ["SATSH_HOME"] = tempfile.mkdtemp(prefix="satshmk")
+os.environ["AIGEN_HOME"] = tempfile.mkdtemp(prefix="aigenmk")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from satsh import markas_client as markas  # noqa: E402
-from satsh.brain import Brain  # noqa: E402
-from satsh.agent import Agent, RunCtx  # noqa: E402
+from aigen import markas_client as markas  # noqa: E402
+from aigen.brain import Brain  # noqa: E402
+from aigen.agent import Agent, RunCtx  # noqa: E402
 
-PY = os.path.join(ROOT, "satsh", "markas", "markas.py")
+PY = os.path.join(ROOT, "aigen", "markas", "markas.py")
 MHOME = tempfile.mkdtemp(prefix="mkdb")
 cmds = []
 
@@ -52,7 +52,7 @@ def main():
     m({"action": "say", "text": "rapat beres", "to": "adam"})
     s = markas.status()
     ok(s["targets"][0]["progress"] == 40 and "deploy staging" in json.dumps(s), "update + log stored")
-    ok("satsh" in markas.run(["read"]) and "rapat beres" in markas.run(["inbox", "--for", "adam"]), "agent posts as satsh, adam's inbox gets it")
+    ok("aigen" in markas.run(["read"]) and "rapat beres" in markas.run(["inbox", "--for", "adam"]), "agent posts as aigen, adam's inbox gets it")
     try:
         m({"action": "target_update"})
         ok(False, "missing id should fail")

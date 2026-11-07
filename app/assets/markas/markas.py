@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""markas — shared workspace for Adam and his agents (satsh, Hermes, agy, Muse, …).
+"""markas — shared workspace for Adam and his agents (aigen, Hermes, agy, Muse, …).
 
 Targets, achievement log and chat rooms in one SQLite file. Every agent talks to it
 the same way: run this CLI (over SSH, or locally like Hermes on the same VPS).
@@ -45,12 +45,12 @@ CREATE TABLE IF NOT EXISTS reads (name TEXT PRIMARY KEY, last_id INTEGER DEFAULT
 """
 
 DEFAULT_MEMBERS = [
-    ("adam", "Bos. Yang punya semua target.", "satsh / Telegram"),
-    ("satsh", "Agent umum di HP & laptop Adam (ketua rapat).", "satsh"),
-    ("web-designer", "Profil satsh buat UI web anti-slop.", "satsh"),
+    ("adam", "Bos. Yang punya semua target.", "aigen / Telegram"),
+    ("aigen", "Agent umum di HP & laptop Adam (ketua rapat).", "aigen"),
+    ("web-designer", "Profil aigen buat UI web anti-slop.", "aigen"),
     ("hermes", "Hermes Agent di VPS adamn.", "CLI: hermes -z / Telegram"),
-    ("agy", "Antigravity CLI di Termux HP Adam.", "satsh (agent eksternal)"),
-    ("muse", "Meta Muse di aplikasi Muse.", "satsh kontrol HP"),
+    ("agy", "Antigravity CLI di Termux HP Adam.", "aigen (agent eksternal)"),
+    ("muse", "Meta Muse di aplikasi Muse.", "aigen kontrol HP"),
 ]
 
 

@@ -4,9 +4,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:satsh/agent/llm.dart';
-import 'package:satsh/agent/providers.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/llm.dart';
+import 'package:aigen/agent/providers.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 String jwt(Map<String, dynamic> claims) =>
@@ -91,12 +91,12 @@ void main() {
       Msg(role: 'assistant', text: '', calls: [ToolCall(id: 'call_1', name: 'phone_list', args: {'path': 'Download'})]),
       Msg(role: 'tool', callId: 'call_1', name: 'phone_list', text: 'a.pdf'),
     ];
-    final r = await cp.chat('SYSTEM satsh', hist, [const ToolSpec(name: 'ssh_exec', description: 'd', params: {'host': {'type': 'string'}})]);
+    final r = await cp.chat('SYSTEM aigen', hist, [const ToolSpec(name: 'ssh_exec', description: 'd', params: {'host': {'type': 'string'}})]);
     expect(r.text, 'Cek dulu.');
     expect(r.calls.single.id, 'call_9');
     expect(r.calls.single.args['command'], 'df -h');
     // first try uses our system prompt as instructions; retry moves it to a developer message
-    expect(bodies[0]['instructions'], 'SYSTEM satsh');
+    expect(bodies[0]['instructions'], 'SYSTEM aigen');
     expect(bodies[1]['instructions'], startsWith('You are Codex'));
     final input = bodies[1]['input'] as List;
     expect(input[0]['role'], 'developer');

@@ -3,13 +3,13 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:satsh/agent/agent.dart';
-import 'package:satsh/agent/brain.dart';
-import 'package:satsh/agent/external.dart';
-import 'package:satsh/agent/providers.dart';
-import 'package:satsh/models.dart';
-import 'package:satsh/ssh_manager.dart';
-import 'package:satsh/store.dart';
+import 'package:aigen/agent/agent.dart';
+import 'package:aigen/agent/brain.dart';
+import 'package:aigen/agent/external.dart';
+import 'package:aigen/agent/providers.dart';
+import 'package:aigen/models.dart';
+import 'package:aigen/ssh_manager.dart';
+import 'package:aigen/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ssh_integration_test.dart' show FakePrompts;
