@@ -580,9 +580,14 @@ ${pb.skillsIndex()}''';
         imgSeen++;
       }
     }
-    // Batas potong absolut & stabil: dibulatkan ke atas ke kelipatan quantum.
+    // Batas potong absolut & stabil: dibulatkan ke BAWAH ke kelipatan quantum.
+    //
+    // Harus ke bawah, bukan ke atas: kalau dibulatkan ke atas, `cut` bisa
+    // melewati `list.length - keepRecent` dan memotong tool output yang BARU
+    // saja dipakai agent (di step ke-17 cuma 1 pesan terbaru yang utuh).
+    // Ke bawah menjamin minimal `keepRecent` pesan terakhir selalu utuh.
     final raw = list.length - keepRecent;
-    final cut = raw <= 0 ? 0 : ((raw + trimQuantum - 1) ~/ trimQuantum) * trimQuantum;
+    final cut = raw <= 0 ? 0 : (raw ~/ trimQuantum) * trimQuantum;
     for (var i = 0; i < list.length; i++) {
       var m = list[i];
       if (m.role == 'event') continue;
